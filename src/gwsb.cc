@@ -118,6 +118,8 @@ Gwsb::render_scatter_plot (const RefPtr<Context> cr,
 {
 
    const Real scatter_ring_size = 8;
+   //const Real saturation = 0.4;
+   const Real saturation = 0.8;
 
    Real alpha = 50.0 / wind_disc.get_total_count ();
    if (alpha < 0.04) { alpha = 0.04; }
@@ -131,6 +133,10 @@ Gwsb::render_scatter_plot (const RefPtr<Context> cr,
 
    const Transform_2D& transform = wind_disc.get_transform ();
 
+   const Real min_temp = 5;
+   const Real max_temp = 25;
+   const Real delta_temp = max_temp - min_temp;
+
    for (const Record& record : record_vector)
    {
 
@@ -143,11 +149,13 @@ Gwsb::render_scatter_plot (const RefPtr<Context> cr,
       if (speed < calm_threshold) { continue; }
       if (speed > max_speed) { continue; }
 
-      Real hue = -.027777 * (gradient_temperature)  + 0.69444;
+      Real hue = -(gradient_temperature - min_temp) / (delta_temp) + 1;
       if (hue < 0) { hue = 0; }
-      if (hue > 0.833) { hue = 0.833; }
-      const Color& color = Color::hsb (hue, 0.4, 0.8, alpha);
-      const Color& color_a2 = Color::hsb (hue, 0.4, 0.8, alpha * 2);
+      if (hue > 1) { hue = 1; }
+      hue *= 0.8333;
+
+      const Color& color = Color::hsb (hue, saturation, 0.8, alpha);
+      const Color& color_a2 = Color::hsb (hue, saturation, 0.8, alpha * 2);
 cout << hue << " " << gradient_temperature << endl;
 
       const Real r = random (dir_scatter, -dir_scatter);
