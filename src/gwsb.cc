@@ -52,7 +52,7 @@ Gwsb::pack ()
 {
 
    const Real margin = 6;
-   const Real title_height = 40;
+   const Real title_height = title.get_height ();
 
    const Real sp_anchor_x = margin;
    const Real sp_anchor_y = title_height + margin; 
@@ -111,85 +111,58 @@ Gwsb::pack ()
 }
 
 void
-Gwsb::render_scatter_plot (const RefPtr<Context> cr,
-                           const Wind_Disc& wind_disc,
-                           const Real dir_scatter,
-                           const vector<Record>& record_vector) const
+Gwsb::render_bg (const RefPtr<Context>& cr,
+                 const Real width,
+                 const Real height,
+                 const Box_2D& viewport)
 {
 
-   const Real scatter_ring_size = 8;
-   //const Real saturation = 0.4;
-   const Real saturation = 0.8;
+//   const Color& color_0 = Color::hsb (0.6, 0.4, 0.8);
+//   const Color& color_1 = Color::hsb (0.6, 0.1, 0.4);
+   const Color& color_0 = Color::hsb (0.6, 0.4, 0.9);
+   const Color& color_1 = Color::hsb (0.6, 0.1, 0.7);
+   const Point_2D point_0 (0, 0);
+   const Point_2D point_1 (0, height);
+   Color_Gradient (color_0, color_1, point_0, point_1).cairo (cr);
+   cr->paint ();
 
-   Real alpha = 50.0 / wind_disc.get_total_count ();
-   if (alpha < 0.04) { alpha = 0.04; }
-   if (alpha > 0.30) { alpha = 0.30; }
+   Color (1.0, 1.0, 1.0, 0.4).cairo (cr);
+   const Point_2D point (viewport.index_2d.i, viewport.index_2d.j);
+   Rect (point, viewport.size_2d.i, viewport.size_2d.j).cairo (cr);
+   cr->fill_preserve ();
+   Color::black ().cairo (cr);
+   cr->stroke ();
 
-   const Ring ring (scatter_ring_size);
+}
 
-   const Wind_Disc::Transform& t = wind_disc.get_transform ();
-   const Real max_speed = t.get_max_speed ();
-   const Real calm_threshold = wind_disc.get_thresholds ().front ().value;
+void
+Gwsb::render_count (const RefPtr<Context>& cr,
+                    const Integer count,
+                    const Box_2D& viewport)
+{
 
-   const Transform_2D& transform = wind_disc.get_transform ();
+   const Dstring fmt (count == 1 ? "%d point" : "%d points");
+   const Dstring& str = Dstring::render (fmt, count);
+   const Color& color_fg = Color::hsb (0.0, 0.0, 0.2, 0.7);
+   const Color& color_bg = Color::hsb (0.0, 0.0, 0.8, 0.9);
 
-   const Real min_temp = 5;
-   const Real max_temp = 25;
-   const Real delta_temp = max_temp - min_temp;
-
-   for (const Record& record : record_vector)
-   {
-
-      const Real gradient_temperature = record.gradient_temperature;
-      const Wind& wind = record.wind;
-      const Real multiplier = 0.51444444;
-      const Real speed = wind.get_speed () / multiplier;
-
-      if (wind.is_naw ()) { continue; }
-      if (speed < calm_threshold) { continue; }
-      if (speed > max_speed) { continue; }
-
-      Real hue = -(gradient_temperature - min_temp) / (delta_temp) + 1;
-      if (hue < 0) { hue = 0; }
-      if (hue > 1) { hue = 1; }
-      hue *= 0.8333;
-
-      const Color& color = Color::hsb (hue, saturation, 0.8, alpha);
-      const Color& color_a2 = Color::hsb (hue, saturation, 0.8, alpha * 2);
-cout << hue << " " << gradient_temperature << endl;
-
-      const Real r = random (dir_scatter, -dir_scatter);
-      const Real direction = wind.get_direction () + r;
-
-      ring.cairo (cr, transform.transform (Point_2D (direction, speed)));
-      color.cairo (cr);
-      cr->fill_preserve ();
-      color_a2.cairo (cr);
-      cr->stroke ();
-
-   }
-
+   const Real padding = 8;
+   const Point_2D ne (viewport.get_ne ());
+   const Point_2D& anchor = ne + Point_2D (-padding, padding);
+   cr->set_font_size (12);
+   Label label (str, anchor, 'r', 't');
+   label.cairo (cr, color_fg, color_bg, Point_2D (-3, 3));
 
 }
 
 Gwsb::Gwsb (Gtk::Window* window_ptr,
-            const Dstring& data_path,
-            const Dstring& station_string,
             const Size_2D& size_2d,
-            const Dstring& gwsb_dir_path,
-            const Integer number_of_directions,
-            const Tuple& threshold_tuple,
-            const Tuple& speed_label_tuple,
-            const Real max_speed)
+            const Data& data,
+            const Wind_Disc& wind_disc)
    : Dcanvas (*window_ptr),
-     wind_disc (number_of_directions,
-                threshold_tuple,
-                Point_2D (size_2d.i / 2, size_2d.j / 2),
-                size_2d.j / 4,
-                speed_label_tuple,
-                max_speed),
+     wind_disc (wind_disc),
      window_ptr (window_ptr),
-     data (data_path, station_string),
+     data (data),
      month_panel (*this, 0, 6),
      hour_panel (*this, 0, 6),
      station_panel (*this, 0, 6),
@@ -301,13 +274,10 @@ Gwsb::match_gradient_wind (const Wind& gradient_wind) const
 
    if (gradient_wind_index_set.size () == 0) { return true; }
 
-   typedef set<Index_2D>::const_iterator Iterator;
    const Index_2D& gw_index = wind_disc.get_index (gradient_wind);
 
-   for (Iterator iterator = gradient_wind_index_set.begin ();
-        iterator != gradient_wind_index_set.end (); iterator++)
+   for (const Index_2D& i2d : gradient_wind_index_set)
    {
-      const Index_2D& i2d = *(iterator);
       if (i2d == gw_index) { return true; }
    }
 
@@ -532,72 +502,57 @@ Gwsb::decrement_hour ()
 }
 
 void
+Gwsb::render (const RefPtr<Context>& cr,
+              const Wind_Disc& wind_disc,
+              const Record::Set& record_set,
+              const set<Index_2D>& gradient_wind_index_set,
+              const Box_2D& viewport,
+              const bool outline,
+              const bool with_noise)
+{
+
+   wind_disc.render_bg (cr);
+
+   const Real dir_noise = (with_noise ? 5 : 0);
+   record_set.render_scatter_plot (cr, wind_disc, dir_noise);
+
+   const Real hue = 0.33;
+   if (outline) { wind_disc.render_percentage_d (cr, hue); }
+   render_count (cr, record_set.size (), viewport);
+
+   wind_disc.render_percentages (cr);
+   wind_disc.render_index_set (cr, gradient_wind_index_set);
+
+}
+
+void
 Gwsb::render ()
 {
 
+
    if (!packed) { pack (); }
 
-   wind_disc.clear ();
    const Dstring& station = station_panel.get_station ();
-   Station_Data& station_data = data.get_station_data (station);
-   station_data.feed (wind_disc, *this);
-
-   const vector<Record>* record_vector_ptr =
-      station_data.get_record_vector_ptr (*this);
-   const vector<Record>& record_vector = *record_vector_ptr;
-   const RefPtr<Context> cr = Context::create (image_surface);
-
-   {
-      const Color& color_0 = Color::hsb (0.6, 0.4, 0.8);
-      const Color& color_1 = Color::hsb (0.6, 0.1, 0.4);
-      const Point_2D point_0 (0, 0);
-      const Point_2D point_1 (0, height);
-      Color_Gradient (color_0, color_1, point_0, point_1).cairo (cr);
-      cr->paint ();
-   }
-
-   {
-      Color (0.0, 0.0, 0.0, 0.4).cairo (cr);
-      const Point_2D point (viewport.index_2d.i, viewport.index_2d.j);
-      Rect (point, viewport.size_2d.i, viewport.size_2d.j).cairo (cr);
-      cr->fill_preserve ();
-      Color ("black").cairo (cr);
-      cr->stroke ();
-   }
-
-   const bool outline = (bottom_panel.with_outline ());
-   const Real dir_noise = (bottom_panel.with_noise () ? 5 : 0);
-   wind_disc.render (cr, 0.33, outline, dir_noise);
-
-   render_scatter_plot (cr, wind_disc, 5, record_vector);
-
-   for (const Index_2D& index_2d : gradient_wind_index_set)
-   {
-      wind_disc.render_index (cr, index_2d);
-   }
-
    const Dstring& month_string = month_panel.get_string ();
    const Dstring& hour_string = hour_panel.get_string ();
+   const bool outline = (bottom_panel.with_outline ());
+   const Real with_noise = bottom_panel.with_noise ();
+
    title.set (month_string, station, hour_string);
    set_foreground_ready (false);
 
-   const Integer total_count = wind_disc.get_total_count ();
-   const Dstring& str = Dstring::render ("%d points", total_count);
-   const Color& color_bg = Color::hsb (0.0, 0.0, 0.4, 0.2);
-   const Color& color_fg = Color::hsb (0.0, 0.0, 0.8, 0.8);
+   wind_disc.clear ();
+   Station_Data& station_data = data.get_station_data (station);
+   station_data.feed (wind_disc, *this);
+   const Record::Set* record_set_ptr = station_data.get_record_set_ptr (*this);
 
-   const Real margin = 6;
-   cr->set_font_size (12);
-   Label label (str, Point_2D (width - 2 * margin, 100 + 3 * margin), 'r', 't');
-   color_bg.cairo (cr);
-   label.set_offset (Point_2D (2, -2));
-   label.cairo (cr);
-   color_fg.cairo (cr);
-   label.set_offset (Point_2D (0, -0));
-   label.cairo (cr);
-
+   const RefPtr<Context> cr = Context::create (image_surface);
+   render_bg (cr, width, height, viewport);
+   render (cr, wind_disc, *record_set_ptr,
+      gradient_wind_index_set, viewport, outline, with_noise);
    Dcanvas::cairo (cr);
 
+   delete record_set_ptr;
 }
 
 void
@@ -607,11 +562,13 @@ Gwsb::render_refresh ()
    const Dstring& station = station_panel.get_station ();
    const Dstring& month_string = month_panel.get_string ();
    const Dstring& hour_string = hour_panel.get_string ();
+
    title.set (month_string, station, hour_string);
    set_foreground_ready (false);
 
    render ();
    queue_draw ();
+
 }
 
 void

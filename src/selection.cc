@@ -252,7 +252,7 @@ Station_Panel::Station_Panel (Gwsb& gwsb,
 
    station = station_tokens.front ();
 
-   const Integer n = 8;
+   const Integer n = 9;
 
    for (Tokens::const_iterator iterator = station_tokens.begin ();
         iterator != station_tokens.end (); iterator++)

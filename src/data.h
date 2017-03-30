@@ -1,9 +1,13 @@
 #ifndef GWSB_DATA_H
 #define GWSB_DATA_H
 
+#include <set>
 #include <iostream>
 #include <denise/gtkmm.h>
 #include <denise/met.h>
+#include <denise/stat.h>
+
+using namespace std;
 
 namespace gwsb
 {
@@ -33,26 +37,46 @@ namespace gwsb
                  const Real gradient_temperature,
                  const Wind& wind);
 
-   };
+         bool
+         operator == (const Record& record) const;
+         
+         bool
+         operator > (const Record& record) const;
+         
+         bool
+         operator < (const Record& record) const;
 
-   class Hourly_Data : public vector<Record>
-   {
-   };
+         class Set : public set<Record>
+         {
 
-   class Monthly_Data : public map<Integer, Hourly_Data>
-   {
+            public:
 
-      public:
+               Sample*
+               get_gradient_temperature_sample_ptr () const;
+
+               void
+               render_scatter_plot (const RefPtr<Context>& cr,
+                                    const Wind_Disc& wind_disc,
+                                    const Real dir_scatter) const;
+
+         };
+
+         class Monthly : public map<Integer, Record::Set>
+         {
+
+            public:
    
-         Monthly_Data ();
+               Monthly ();
 
-         void
-         add (const Integer hour,
-              const Record& record);
+               void
+               add (const Integer hour,
+                    const Record& record);
+
+         };
 
    };
 
-   class Station_Data : public map<Integer, Monthly_Data>
+   class Station_Data : public map<Integer, Record::Monthly>
    {
 
       private:
@@ -61,6 +85,11 @@ namespace gwsb
          add (const Integer month,
               const Integer hour,
               const Record& record);
+
+         bool
+         match_gradient_wind (const Wind_Disc& wind_disc,
+                              const set<Index_2D>& gradient_wind_index_set,
+                              const Wind& gradient_wind) const;
 
       public:
 
@@ -73,8 +102,20 @@ namespace gwsb
          feed (Wind_Rose& wind_rose,
                const Gwsb& gwsb) const;
 
-         vector<Record>*
-         get_record_vector_ptr (const Gwsb& gwsb) const;
+         Record::Set*
+         get_record_set_ptr (const Gwsb& gwsb) const;
+
+         Record::Set*
+         get_record_set_ptr (const set<Integer>& month_set,
+                             const set<Integer>& hour_set,
+                             const Wind_Disc& wind_disc,
+                             const set<Index_2D>& gradient_wind_index_set) const;
+
+         Record::Set*
+         get_record_set_ptr (const set<Integer>& month_set,
+                             const set<Integer>& hour_set,
+                             const Wind& gradient_wind,
+                             const Real threshold = 2.5) const;
 
    };
 

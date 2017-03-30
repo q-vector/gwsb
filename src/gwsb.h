@@ -79,23 +79,23 @@ namespace gwsb
          void
          pack ();
 
-         void
-         render_scatter_plot (const RefPtr<Context> cr,
-                              const Wind_Disc& wind_disc,
-                              const Real dir_scatter,
-                              const vector<Record>& record_vector) const;
+         static void
+         render_bg (const RefPtr<Context>& cr,
+                    const Real width,
+                    const Real height,
+                    const Box_2D& viewport);
+
+         static void
+         render_count (const RefPtr<Context>& cr,
+                       const Integer count,
+                       const Box_2D& viewport);
 
       public:
 
          Gwsb (Gtk::Window* window_ptr,
-               const Dstring& data_path,
-               const Dstring& station_string,
                const Size_2D& size_2d,
-               const Dstring& gwsb_dir_path,
-               const Integer number_of_directions,
-               const Tuple& threshold_tuple,
-               const Tuple& speed_label_tuple,
-               const Real max_speed);
+               const Data& data,
+               const Wind_Disc& wind_disc);
 
          ~Gwsb ();
 
@@ -151,6 +151,15 @@ namespace gwsb
 
          void
          decrement_hour ();
+
+         static void
+         render (const RefPtr<Context>& cr,
+                 const Wind_Disc& wind_disc,
+                 const Record::Set& record_set,
+                 const set<Index_2D>& gradient_wind_index_set,
+                 const Box_2D& viewport,
+                 const bool outline,
+                 const bool with_noise);
 
          void
          render ();
