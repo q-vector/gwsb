@@ -8,10 +8,10 @@ using namespace gwsb;
 
 Selection_Panel::Button::Button (Selection_Panel& selection_panel,
                                  const Integer value,
-                                 const Gwsb& gwsb,
+                                 const Gwsb_Free& gwsb_free,
                                  const string& str,
                                  const Real font_size)
-   : Dbutton (gwsb, str, font_size),
+   : Dbutton (gwsb_free, str, font_size),
      selection_panel (selection_panel),
      value (value)
 {
@@ -25,15 +25,15 @@ Selection_Panel::Button::clicked (const Dmouse_Button_Event& event)
    else { selection_panel.set_value (value); }
 }
 
-Selection_Panel::Selection_Panel (Gwsb& gwsb,
+Selection_Panel::Selection_Panel (Gwsb_Free& gwsb_free,
                                   const Real margin,
                                   const Real spacing)
-   : Dpack_Box (gwsb, margin, spacing, false),
-     gwsb (gwsb),
+   : Dpack_Box (gwsb_free, margin, spacing, false),
+     gwsb_free (gwsb_free),
      led_color (1, 0, 0),
-     box (gwsb, 0, 6, true),
-     decrement_button (gwsb, "-", 12),
-     increment_button (gwsb, "+", 12)
+     box (gwsb_free, 0, 6, true),
+     decrement_button (gwsb_free, "-", 12),
+     increment_button (gwsb_free, "+", 12)
 {
    box.pack_back (decrement_button);
    box.pack_back (increment_button);
@@ -92,7 +92,7 @@ Selection_Panel::set_value (const Integer value,
 
    if (render_and_refresh)
    {
-      gwsb.render_refresh ();
+      gwsb_free.render_refresh ();
    }
 
 }
@@ -108,8 +108,8 @@ Selection_Panel::toggle (const Integer value)
    if (is_on) { button.set_led_color (led_color); }
    else { button.set_led_color (Color (GSL_NAN, GSL_NAN, GSL_NAN)); }
 
-   gwsb.render ();
-   gwsb.queue_draw ();
+   gwsb_free.render ();
+   gwsb_free.queue_draw ();
 
 }
 
@@ -117,15 +117,15 @@ void
 Month_Panel::add_month (const Integer month)
 {
    const string& str = string_map[month].substr (0, 3);
-   Button* button_ptr = new Button (*this, month, gwsb, str, 12);
+   Button* button_ptr = new Button (*this, month, gwsb_free, str, 12);
    button_ptr_map.insert (make_pair (month, button_ptr));
    pack_back (*button_ptr);
 }
 
-Month_Panel::Month_Panel (Gwsb& gwsb,
+Month_Panel::Month_Panel (Gwsb_Free& gwsb_free,
                           const Real margin,
                           const Real spacing)
-   : Selection_Panel (gwsb, margin, spacing)
+   : Selection_Panel (gwsb_free, margin, spacing)
 {
 
    string_map.insert (make_pair (1, "January"));
@@ -148,9 +148,9 @@ Month_Panel::Month_Panel (Gwsb& gwsb,
    }
 
    decrement_button.get_signal ().connect (sigc::mem_fun (
-      gwsb, &Gwsb::decrement_month));
+      gwsb_free, &Gwsb_Free::decrement_month));
    increment_button.get_signal ().connect (sigc::mem_fun (
-      gwsb, &Gwsb::increment_month));
+      gwsb_free, &Gwsb_Free::increment_month));
 
 }
 
@@ -177,15 +177,15 @@ void
 Hour_Panel::add_hour (const Integer hour)
 {
    const string& str = string_map[hour];
-   Button* button_ptr = new Button (*this, hour, gwsb, str, 12);
+   Button* button_ptr = new Button (*this, hour, gwsb_free, str, 12);
    button_ptr_map.insert (make_pair (hour, button_ptr));
    pack_back (*button_ptr);
 }
 
-Hour_Panel::Hour_Panel (Gwsb& gwsb,
+Hour_Panel::Hour_Panel (Gwsb_Free& gwsb_free,
                         const Real margin,
                         const Real spacing)
-   : Selection_Panel (gwsb, margin, spacing)
+   : Selection_Panel (gwsb_free, margin, spacing)
 {
 
    for (Integer hour = 0; hour < 24; hour++)
@@ -197,9 +197,9 @@ Hour_Panel::Hour_Panel (Gwsb& gwsb,
    }
 
    decrement_button.get_signal ().connect (sigc::mem_fun (
-      gwsb, &Gwsb::decrement_hour));
+      gwsb_free, &Gwsb_Free::decrement_hour));
    increment_button.get_signal ().connect (sigc::mem_fun (
-      gwsb, &Gwsb::increment_hour));
+      gwsb_free, &Gwsb_Free::increment_hour));
 
 }
 
@@ -224,9 +224,9 @@ Hour_Panel::get_string () const
 
 Station_Panel::Button::Button (Station_Panel& station_panel,
                                const string& station,
-                               const Gwsb& gwsb,
+                               const Gwsb_Free& gwsb_free,
                                const Real font_size)
-   : Dbutton (gwsb, station, font_size),
+   : Dbutton (gwsb_free, station, font_size),
      station_panel (station_panel),
      station (station)
 {
@@ -239,15 +239,15 @@ Station_Panel::Button::clicked (const Dmouse_Button_Event& event)
    station_panel.set_station (station);
 }
 
-Station_Panel::Station_Panel (Gwsb& gwsb,
+Station_Panel::Station_Panel (Gwsb_Free& gwsb_free,
                               const Real margin,
                               const Real spacing)
-   : Dgrid_Box (gwsb, margin, spacing),
-     gwsb (gwsb),
+   : Dgrid_Box (gwsb_free, margin, spacing),
+     gwsb_free (gwsb_free),
      led_color (1, 0, 0)
 {
 
-   const Data& data = gwsb.get_data ();
+   const Data& data = gwsb_free.get_data ();
    const Tokens& station_tokens = data.get_station_tokens ();
 
    station = station_tokens.front ();
@@ -261,7 +261,7 @@ Station_Panel::Station_Panel (Gwsb& gwsb,
       const Integer id = distance (station_tokens.begin (), iterator);
       const Integer i = id % n;
       const Integer j = id / n;
-      Button* button_ptr = new Button (*this, station, gwsb, 12);
+      Button* button_ptr = new Button (*this, station, gwsb_free, 12);
       button_ptr_map.insert (make_pair (station, button_ptr));
       pack (*button_ptr, Index_2D (i, j));
    }
@@ -285,8 +285,8 @@ void
 Station_Panel::set_station (const string& station)
 {
    this->station = station;
-   gwsb.render ();
-   gwsb.queue_draw ();
+   gwsb_free.render ();
+   gwsb_free.queue_draw ();
 }
 
 const string&

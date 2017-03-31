@@ -9,7 +9,7 @@
 namespace gwsb
 {
 
-   class Gwsb;
+   class Gwsb_Free;
    class Month_Panel;
    class Hour_Panel;
    class Station_Panel;
@@ -34,7 +34,7 @@ namespace gwsb
 
                Button (Selection_Panel& selection_panel,
                        const Integer value,
-                       const Gwsb& gwsb,
+                       const Gwsb_Free& gwsb_free,
                        const string& str,
                        const Real font_size);
 
@@ -52,8 +52,8 @@ namespace gwsb
          Dbutton
          increment_button;
 
-         Gwsb&
-         gwsb;
+         Gwsb_Free&
+         gwsb_free;
 
          map<Integer, Dbutton*>
          button_ptr_map;
@@ -69,7 +69,7 @@ namespace gwsb
 
       public:
 
-         Selection_Panel (Gwsb& gwsb,
+         Selection_Panel (Gwsb_Free& gwsb_free,
                           const Real margin,
                           const Real spacing);
 
@@ -100,7 +100,7 @@ namespace gwsb
 
       public:
 
-         Month_Panel (Gwsb& gwsb,
+         Month_Panel (Gwsb_Free& gwsb_free,
                       const Real margin,
                       const Real spacing);
 
@@ -122,7 +122,7 @@ namespace gwsb
 
       public:
 
-         Hour_Panel (Gwsb& gwsb,
+         Hour_Panel (Gwsb_Free& gwsb_free,
                      const Real margin,
                      const Real spacing);
 
@@ -151,7 +151,7 @@ namespace gwsb
 
                Button (Station_Panel& station_panel,
                        const string& station,
-                       const Gwsb& gwsb,
+                       const Gwsb_Free& gwsb_free,
                        const Real font_size);
 
                void
@@ -159,8 +159,8 @@ namespace gwsb
 
          };
 
-         Gwsb&
-         gwsb;
+         Gwsb_Free&
+         gwsb_free;
 
          string
          station;
@@ -173,7 +173,7 @@ namespace gwsb
 
       public:
 
-         Station_Panel (Gwsb& gwsb,
+         Station_Panel (Gwsb_Free& gwsb_free,
                         const Real margin,
                         const Real spacing);
 

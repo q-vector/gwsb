@@ -2,6 +2,7 @@
 #include <iostream>
 #include <denise/gtkmm.h>
 #include "gwsb.h"
+#include "gw.h"
 
 using namespace std;
 using namespace denise;
@@ -19,6 +20,7 @@ main (int argc,
       { "geometry",                   1, 0, 'g' },
       { "speed-label-tuple",          1, 0, 'l' },
       { "number-of-directions",       1, 0, 'n' },
+      { "Sequence",                   1, 0, 'S' },
       { "station",                    1, 0, 's' },
       { "thresholds-tuple",           1, 0, 't' },
       { "max-speed",                  1, 0, 'x' }
@@ -38,10 +40,11 @@ main (int argc,
       Real max_speed = GSL_NAN;
       Wind gradient_wind (GSL_NAN, GSL_NAN);
       Real gradient_wind_threshold = GSL_NAN;
+      Dstring sequence_dir_path ("");
 
       int c;
       int option_index = 0;
-      char optstring[] = "cG:g:l:n:s:t:x:";
+      char optstring[] = "cG:g:l:n:S:s:t:x:";
 
       while ((c = getopt_long (argc, argv, optstring,
              long_options, &option_index)) != -1)
@@ -85,6 +88,12 @@ main (int argc,
                break;
             }
 
+            case 'S':
+            {
+               sequence_dir_path = Dstring (optarg);
+               break;
+            }
+
             case 's':
             {
                if (station_string.size () != 0) { station_string += ":"; }
@@ -119,6 +128,15 @@ main (int argc,
          Point_2D (size_2d.i / 2, size_2d.j / 2), size_2d.j / 2.4,
          speed_label_tuple, max_speed);
 
+      if (sequence_dir_path != "")
+      {
+
+         const Nwp_Gw::Sequence::Map gwsm (sequence_dir_path);
+         //const Nwp_Gw::Sequence sequence (sequence_file_path);
+         //sequence.run (data, size_2d, wind_disc);
+
+      }
+      else
       if (command_line)
       {
 
@@ -167,10 +185,10 @@ main (int argc,
          window.resize (size_2d.i, size_2d.j);
          window.set_title ("gwsb");
 
-         Gwsb gwsb (window_ptr, size_2d, data, wind_disc);
+         Gwsb_Free gwsb_free (window_ptr, size_2d, data, wind_disc);
 
-         window.add (gwsb);
-         gwsb.show ();
+         window.add (gwsb_free);
+         gwsb_free.show ();
 
          Gtk::Main::run (window);
 

@@ -7,23 +7,23 @@ using namespace std;
 using namespace denise;
 using namespace gwsb;
 
-Bottom_Panel::Bottom_Panel (Gwsb& gwsb)
-   : Drawer_Panel (gwsb, true, 12),
-     gwsb (gwsb),
-     noise_button (gwsb, "+Noise", 12),
-     outline_button (gwsb, "Outline", 12),
-     save_button (gwsb, "Save", 12)
+Bottom_Panel::Bottom_Panel (Gwsb_Free& gwsb_free)
+   : Drawer_Panel (gwsb_free, true, 12),
+     gwsb_free (gwsb_free),
+     noise_button (gwsb_free, "+Noise", 12),
+     outline_button (gwsb_free, "Outline", 12),
+     save_button (gwsb_free, "Save", 12)
 {
 
    add_drawer ("Option");
    add_drawer ("Tool");
 
    noise_button.get_signal ().connect (sigc::mem_fun (
-      gwsb, &Gwsb::render_refresh));
+      gwsb_free, &Gwsb_Free::render_queue_draw));
    outline_button.get_signal ().connect (sigc::mem_fun (
-      gwsb, &Gwsb::render_refresh));
+      gwsb_free, &Gwsb_Free::render_queue_draw));
    save_button.get_signal ().connect (sigc::mem_fun (
-      gwsb, &Gwsb::save_image));
+      gwsb_free, &Gwsb_Free::save_image));
 
    add_widget_ptr ("Option", &noise_button);
    add_widget_ptr ("Option", &outline_button);
@@ -77,18 +77,6 @@ Gwsb::pack ()
    const Real bp_anchor_x = width - bp_width - margin;
    const Real bp_anchor_y = height - bp_height - margin;
    const Point_2D bp_anchor (bp_anchor_x, bp_anchor_y);
-
-   station_panel.being_packed (sp_anchor, sp_width, sp_height);
-   station_panel.pack ();
-
-   month_panel.being_packed (mp_anchor, mp_width, mp_height);
-   month_panel.pack ();
-
-   hour_panel.being_packed (hp_anchor, hp_width, hp_height);
-   hour_panel.pack ();
-
-   bottom_panel.being_packed (bp_anchor, bp_width, bp_height);
-   bottom_panel.pack ();
 
    const Real viewport_width = width - hp_width - mp_width - margin * 4;
    const Real viewport_height = height - title_height - sp_height - margin * 3;
@@ -163,12 +151,7 @@ Gwsb::Gwsb (Gtk::Window* window_ptr,
      wind_disc (wind_disc),
      window_ptr (window_ptr),
      data (data),
-     month_panel (*this, 0, 6),
-     hour_panel (*this, 0, 6),
-     station_panel (*this, 0, 6),
-     bottom_panel (*this),
-     viewport (Size_2D (0, 0)),
-     selecting_gradient_wind (false)
+     viewport (Size_2D (0, 0))
 {
 
    Gdk::EventMask event_mask = (Gdk::SCROLL_MASK);
@@ -184,15 +167,6 @@ Gwsb::Gwsb (Gtk::Window* window_ptr,
    set_preferred_size (size_2d.i, size_2d.j);
    being_packed (Point_2D (0, 0), size_2d.i, size_2d.j);
 
-   const Dtime now;
-   month_panel.set_value (now.get_month (), false);
-   hour_panel.set_value (now.get_hour (), false);
-
-   register_widget (month_panel);
-   register_widget (hour_panel);
-   register_widget (station_panel);
-   register_widget (bottom_panel);
-
 }
 
 Gwsb::~Gwsb ()
@@ -203,372 +177,6 @@ const Data&
 Gwsb::get_data () const
 {
    return data;
-}
-
-const set<Index_2D>&
-Gwsb::get_gradient_wind_index_set () const
-{
-   return gradient_wind_index_set;
-}
-
-set<Integer>
-Gwsb::get_month_set () const
-{
-   return month_panel.get_value_set ();
-}
-
-set<Integer>
-Gwsb::get_hour_set () const
-{
-   return hour_panel.get_value_set ();
-}
-
-bool
-Gwsb::add_gradient_wind_index (const Index_2D& index_2d,
-                               const bool clear_first,
-                               const bool delete_if_present)
-{
-
-   if (clear_first) { clear_gradient_wind_index (); }
-
-   set<Index_2D>::iterator iterator = gradient_wind_index_set.find (index_2d);
-   if (iterator != gradient_wind_index_set.end ())
-   {
-      if (delete_if_present)
-      {
-         gradient_wind_index_set.erase (iterator);
-         return true;
-      }
-      else
-      {
-         return false;
-      }
-   }
-   else
-   {
-      gradient_wind_index_set.insert (index_2d);
-      return true;
-   }
-
-}
-
-void
-Gwsb::delete_gradient_wind_index (const Index_2D& index_2d)
-{
-   set<Index_2D>::iterator iterator = gradient_wind_index_set.find (index_2d);
-   if (iterator != gradient_wind_index_set.end ())
-   {
-      gradient_wind_index_set.erase (iterator);
-   }
-}
-
-void
-Gwsb::clear_gradient_wind_index ()
-{
-   gradient_wind_index_set.clear ();
-}
-
-bool
-Gwsb::match_gradient_wind (const Wind& gradient_wind) const
-{
-
-   if (gradient_wind_index_set.size () == 0) { return true; }
-
-   const Index_2D& gw_index = wind_disc.get_index (gradient_wind);
-
-   for (const Index_2D& i2d : gradient_wind_index_set)
-   {
-      if (i2d == gw_index) { return true; }
-   }
-
-   return false;
-
-}
-
-bool
-Gwsb::on_key_pressed (const Dkey_Event& event)
-{
-
-   switch (event.value)
-   {
-
-      case GDK_KEY_Up:
-      {
-         decrement_month ();
-         render ();
-         queue_draw ();
-         break;
-      }
-
-      case GDK_KEY_Down:
-      {
-         increment_month ();
-         render ();
-         queue_draw ();
-         break;
-      }
-
-      case GDK_KEY_Left:
-      {
-         decrement_hour ();
-         render ();
-         queue_draw ();
-         break;
-      }
-
-      case GDK_KEY_Right:
-      {
-         increment_hour ();
-         render ();
-         queue_draw ();
-         break;
-      }
-
-      case GDK_KEY_Q:
-      case GDK_KEY_q:
-      {
-         exit (0);
-         //delete window_ptr;
-         //delete this;
-         break;
-      }
-
-   }
-
-}
-
-bool
-Gwsb::on_mouse_button_pressed (const Dmouse_Button_Event& event)
-{
-
-   if (Dcontainer::on_mouse_button_pressed (event)) { return true; }
-   const Point_2D& point = event.point;
-
-   switch (event.button)
-   {
-
-      case 1:
-      {
-
-         try
-         {
-
-            const Wind& gradient_wind = wind_disc.get_wind (point);
-            const Index_2D& index_2d = wind_disc.get_index (gradient_wind);
-
-            const bool control_pressed = (event.state & GDK_CONTROL_MASK);
-            const bool clear_first = !control_pressed;
-            add_gradient_wind_index (index_2d, clear_first, true);
-
-            selecting_gradient_wind = true;
-
-         }
-         catch (const Exception& e)
-         {
-            if (viewport.contains (point.x, point.y))
-            {
-               clear_gradient_wind_index ();
-            }
-         }
-
-         render ();
-         queue_draw ();
-         return true;
-         break;
-
-      }
-
-   }
-
-   return false;
-
-}
-
-bool
-Gwsb::on_mouse_motion (const Dmouse_Motion_Event& event)
-{
-
-   if (Dcontainer::on_mouse_motion (event)) { return true; }
-   const Point_2D& point = event.point;
-
-   if (selecting_gradient_wind)
-   {
-
-      try
-      {
-         const Wind& gradient_wind = wind_disc.get_wind (point);
-         const Index_2D& index_2d = wind_disc.get_index (gradient_wind);
-         if (add_gradient_wind_index (index_2d, false, false))
-         {
-            render ();
-            queue_draw ();
-            return true;
-         }
-      }
-      catch (const Exception& e)
-      {
-      }
-
-   }
-
-   return false;
-
-}
-
-bool
-Gwsb::on_mouse_button_released (const Dmouse_Button_Event& event)
-{
-
-   if (Dcontainer::on_mouse_button_released (event)) { return true; }
-   const Point_2D& point = event.point;
-
-   bool processed = false;
-
-/*
-   switch (event.button)
-   {
-
-      case 1:
-      {
-
-         try
-         {
-            const bool control_pressed = (event.state & GDK_CONTROL_MASK);
-            if (control_pressed)
-            {
-               const Wind& gradient_wind = wind_disc.get_wind (point);
-               const Index_2D& index_2d = wind_disc.get_index (gradient_wind);
-               if (!dragging_gradient_wind)
-               {
-                  delete_gradient_wind_index (index_2d);
-                  render ();
-                  refresh ();
-                  processed = true;
-               }
-            }
-         }
-         catch (const Exception& e)
-         {
-         }
-         break;
-
-      }
-   }
-*/
-      
-   selecting_gradient_wind = false;
-   return processed;
-
-}
-
-void
-Gwsb::increment_month ()
-{
-   set<Integer> month_set = month_panel.get_value_set ();
-   if (month_set.size () == 0) { return; }
-   const Integer last_month = *(month_set.rbegin ());
-   const Integer month = ((last_month) % 12) + 1;
-   month_panel.set_value (month);
-}
-
-void
-Gwsb::decrement_month ()
-{
-   set<Integer> month_set = month_panel.get_value_set ();
-   if (month_set.size () == 0) { return; }
-   const Integer first_month = *(month_set.begin ());
-   const Integer month = ((first_month + 10) % 12) + 1;
-   month_panel.set_value (month);
-}
-
-void
-Gwsb::increment_hour ()
-{
-   set<Integer> hour_set = hour_panel.get_value_set ();
-   if (hour_set.size () == 0) { return; }
-   const Integer last_hour = *(hour_set.rbegin ());
-   const Integer hour = (last_hour + 1) % 24;
-   hour_panel.set_value (hour);
-}
-
-void
-Gwsb::decrement_hour ()
-{
-   set<Integer> hour_set = hour_panel.get_value_set ();
-   if (hour_set.size () == 0) { return; }
-   const Integer first_hour = *(hour_set.begin ());
-   const Integer hour = (first_hour + 23) % 24;
-   hour_panel.set_value (hour);
-}
-
-void
-Gwsb::render (const RefPtr<Context>& cr,
-              const Wind_Disc& wind_disc,
-              const Record::Set& record_set,
-              const set<Index_2D>& gradient_wind_index_set,
-              const Box_2D& viewport,
-              const bool outline,
-              const bool with_noise)
-{
-
-   wind_disc.render_bg (cr);
-
-   const Real dir_noise = (with_noise ? 5 : 0);
-   record_set.render_scatter_plot (cr, wind_disc, dir_noise);
-
-   const Real hue = 0.33;
-   if (outline) { wind_disc.render_percentage_d (cr, hue); }
-   render_count (cr, record_set.size (), viewport);
-
-   wind_disc.render_percentages (cr);
-   wind_disc.render_index_set (cr, gradient_wind_index_set);
-
-}
-
-void
-Gwsb::render ()
-{
-
-
-   if (!packed) { pack (); }
-
-   const Dstring& station = station_panel.get_station ();
-   const Dstring& month_string = month_panel.get_string ();
-   const Dstring& hour_string = hour_panel.get_string ();
-   const bool outline = (bottom_panel.with_outline ());
-   const Real with_noise = bottom_panel.with_noise ();
-
-   title.set (month_string, station, hour_string);
-   set_foreground_ready (false);
-
-   wind_disc.clear ();
-   Station_Data& station_data = data.get_station_data (station);
-   station_data.feed (wind_disc, *this);
-   const Record::Set* record_set_ptr = station_data.get_record_set_ptr (*this);
-
-   const RefPtr<Context> cr = Context::create (image_surface);
-   render_bg (cr, width, height, viewport);
-   render (cr, wind_disc, *record_set_ptr,
-      gradient_wind_index_set, viewport, outline, with_noise);
-   Dcanvas::cairo (cr);
-
-   delete record_set_ptr;
-}
-
-void
-Gwsb::render_refresh ()
-{
-
-   const Dstring& station = station_panel.get_station ();
-   const Dstring& month_string = month_panel.get_string ();
-   const Dstring& hour_string = hour_panel.get_string ();
-
-   title.set (month_string, station, hour_string);
-   set_foreground_ready (false);
-
-   render ();
-   queue_draw ();
-
 }
 
 void
@@ -665,6 +273,458 @@ Gwsb::save (const Dstring& file_path)
    }
 
    return false;
+
+}
+
+Gwsb_Free::Gwsb_Free (Gtk::Window* window_ptr,
+                      const Size_2D& size_2d,
+                      const Data& data,
+                      const Wind_Disc& wind_disc)
+   : Gwsb (window_ptr, size_2d, data, wind_disc),
+     station_panel (*this, 0, 6),
+     month_panel (*this, 0, 6),
+     hour_panel (*this, 0, 6),
+     bottom_panel (*this),
+     selecting_gradient_wind (false)
+{
+
+   const Dtime now;
+   month_panel.set_value (now.get_month (), false);
+   hour_panel.set_value (now.get_hour (), false);
+
+   register_widget (station_panel);
+   register_widget (month_panel);
+   register_widget (hour_panel);
+   register_widget (bottom_panel);
+
+}
+
+void
+Gwsb_Free::pack ()
+{
+
+   const Real margin = 6;
+   const Real title_height = title.get_height ();
+
+   const Real sp_anchor_x = margin;
+   const Real sp_anchor_y = title_height + margin; 
+   const Real sp_width = width - 2 * margin;
+   const Real sp_height = 60;
+   const Point_2D sp_anchor (sp_anchor_x, sp_anchor_y);
+
+   const Real mp_anchor_x = margin; 
+   const Real mp_anchor_y = sp_anchor_y + sp_height + margin; 
+   const Real mp_width = 60;
+   const Real mp_height = height - mp_anchor_y - margin;
+   const Point_2D mp_anchor (mp_anchor_x, mp_anchor_y);
+
+   const Real hp_anchor_x = mp_anchor_x + mp_width + margin; 
+   const Real hp_anchor_y = mp_anchor_y; 
+   const Real hp_width = 60;
+   const Real hp_height = height - hp_anchor_y - margin;
+   const Point_2D hp_anchor (hp_anchor_x, hp_anchor_y);
+
+   const Real bp_width = 200;
+   const Real bp_height = 20;
+   const Real bp_anchor_x = width - bp_width - margin;
+   const Real bp_anchor_y = height - bp_height - margin;
+   const Point_2D bp_anchor (bp_anchor_x, bp_anchor_y);
+
+   station_panel.being_packed (sp_anchor, sp_width, sp_height);
+   station_panel.pack ();
+
+   month_panel.being_packed (mp_anchor, mp_width, mp_height);
+   month_panel.pack ();
+
+   hour_panel.being_packed (hp_anchor, hp_width, hp_height);
+   hour_panel.pack ();
+
+   bottom_panel.being_packed (bp_anchor, bp_width, bp_height);
+   bottom_panel.pack ();
+
+   const Real viewport_width = width - hp_width - mp_width - margin * 4;
+   const Real viewport_height = height - title_height - sp_height - margin * 3;
+   const Real viewport_x = width - viewport_width - margin;
+   const Real viewport_y = height - viewport_height - margin;
+   const Real origin_x = viewport_x + viewport_width / 2;
+   const Real origin_y = viewport_y + viewport_height / 2;
+   const Point_2D origin (origin_x, origin_y);
+
+   viewport.index_2d.i = Integer (round (viewport_x));
+   viewport.index_2d.j = Integer (round (viewport_y));
+   viewport.size_2d.i = Integer (round (viewport_width));
+   viewport.size_2d.j = Integer (round (viewport_height));
+
+   const Real max_radius = std::min (viewport_width, viewport_height) * 0.475;
+   wind_disc.set_position (origin, max_radius);
+
+   this->packed = true;
+
+}
+
+const set<Index_2D>&
+Gwsb_Free::get_gradient_wind_index_set () const
+{
+   return gradient_wind_index_set;
+}
+
+set<Integer>
+Gwsb_Free::get_month_set () const
+{
+   return month_panel.get_value_set ();
+}
+
+set<Integer>
+Gwsb_Free::get_hour_set () const
+{
+   return hour_panel.get_value_set ();
+}
+
+bool
+Gwsb_Free::add_gradient_wind_index (const Index_2D& index_2d,
+                                    const bool clear_first,
+                                    const bool delete_if_present)
+{
+
+   if (clear_first) { clear_gradient_wind_index (); }
+
+   set<Index_2D>::iterator iterator = gradient_wind_index_set.find (index_2d);
+   if (iterator != gradient_wind_index_set.end ())
+   {
+      if (delete_if_present)
+      {
+         gradient_wind_index_set.erase (iterator);
+         return true;
+      }
+      else
+      {
+         return false;
+      }
+   }
+   else
+   {
+      gradient_wind_index_set.insert (index_2d);
+      return true;
+   }
+
+}
+
+void
+Gwsb_Free::delete_gradient_wind_index (const Index_2D& index_2d)
+{
+   set<Index_2D>::iterator iterator = gradient_wind_index_set.find (index_2d);
+   if (iterator != gradient_wind_index_set.end ())
+   {
+      gradient_wind_index_set.erase (iterator);
+   }
+}
+
+void
+Gwsb_Free::clear_gradient_wind_index ()
+{
+   gradient_wind_index_set.clear ();
+}
+
+bool
+Gwsb_Free::match_gradient_wind (const Wind& gradient_wind) const
+{
+
+   if (gradient_wind_index_set.size () == 0) { return true; }
+
+   const Index_2D& gw_index = wind_disc.get_index (gradient_wind);
+
+   for (const Index_2D& i2d : gradient_wind_index_set)
+   {
+      if (i2d == gw_index) { return true; }
+   }
+
+   return false;
+
+}
+
+bool
+Gwsb_Free::on_key_pressed (const Dkey_Event& event)
+{
+
+   switch (event.value)
+   {
+
+      case GDK_KEY_Up:
+      {
+         decrement_month ();
+         render ();
+         queue_draw ();
+         break;
+      }
+
+      case GDK_KEY_Down:
+      {
+         increment_month ();
+         render ();
+         queue_draw ();
+         break;
+      }
+
+      case GDK_KEY_Left:
+      {
+         decrement_hour ();
+         render ();
+         queue_draw ();
+         break;
+      }
+
+      case GDK_KEY_Right:
+      {
+         increment_hour ();
+         render ();
+         queue_draw ();
+         break;
+      }
+
+      case GDK_KEY_Q:
+      case GDK_KEY_q:
+      {
+         exit (0);
+         //delete window_ptr;
+         //delete this;
+         break;
+      }
+
+   }
+
+}
+
+bool
+Gwsb_Free::on_mouse_button_pressed (const Dmouse_Button_Event& event)
+{
+
+   if (Dcontainer::on_mouse_button_pressed (event)) { return true; }
+   const Point_2D& point = event.point;
+
+   switch (event.button)
+   {
+
+      case 1:
+      {
+
+         try
+         {
+
+            const Wind& gradient_wind = wind_disc.get_wind (point);
+            const Index_2D& index_2d = wind_disc.get_index (gradient_wind);
+
+            const bool control_pressed = (event.state & GDK_CONTROL_MASK);
+            const bool clear_first = !control_pressed;
+            add_gradient_wind_index (index_2d, clear_first, true);
+
+            selecting_gradient_wind = true;
+
+         }
+         catch (const Exception& e)
+         {
+            if (viewport.contains (point.x, point.y))
+            {
+               clear_gradient_wind_index ();
+            }
+         }
+
+         render ();
+         queue_draw ();
+         return true;
+         break;
+
+      }
+
+   }
+
+   return false;
+
+}
+
+bool
+Gwsb_Free::on_mouse_motion (const Dmouse_Motion_Event& event)
+{
+
+   if (Dcontainer::on_mouse_motion (event)) { return true; }
+   const Point_2D& point = event.point;
+
+   if (selecting_gradient_wind)
+   {
+
+      try
+      {
+         const Wind& gradient_wind = wind_disc.get_wind (point);
+         const Index_2D& index_2d = wind_disc.get_index (gradient_wind);
+         if (add_gradient_wind_index (index_2d, false, false))
+         {
+            render ();
+            queue_draw ();
+            return true;
+         }
+      }
+      catch (const Exception& e)
+      {
+      }
+
+   }
+
+   return false;
+
+}
+
+bool
+Gwsb_Free::on_mouse_button_released (const Dmouse_Button_Event& event)
+{
+
+   if (Dcontainer::on_mouse_button_released (event)) { return true; }
+   const Point_2D& point = event.point;
+
+   bool processed = false;
+
+/*
+   switch (event.button)
+   {
+
+      case 1:
+      {
+
+         try
+         {
+            const bool control_pressed = (event.state & GDK_CONTROL_MASK);
+            if (control_pressed)
+            {
+               const Wind& gradient_wind = wind_disc.get_wind (point);
+               const Index_2D& index_2d = wind_disc.get_index (gradient_wind);
+               if (!dragging_gradient_wind)
+               {
+                  delete_gradient_wind_index (index_2d);
+                  render ();
+                  refresh ();
+                  processed = true;
+               }
+            }
+         }
+         catch (const Exception& e)
+         {
+         }
+         break;
+
+      }
+   }
+*/
+      
+   selecting_gradient_wind = false;
+   return processed;
+
+}
+
+void
+Gwsb_Free::increment_month ()
+{
+   set<Integer> month_set = month_panel.get_value_set ();
+   if (month_set.size () == 0) { return; }
+   const Integer last_month = *(month_set.rbegin ());
+   const Integer month = ((last_month) % 12) + 1;
+   month_panel.set_value (month);
+}
+
+void
+Gwsb_Free::decrement_month ()
+{
+   set<Integer> month_set = month_panel.get_value_set ();
+   if (month_set.size () == 0) { return; }
+   const Integer first_month = *(month_set.begin ());
+   const Integer month = ((first_month + 10) % 12) + 1;
+   month_panel.set_value (month);
+}
+
+void
+Gwsb_Free::increment_hour ()
+{
+   set<Integer> hour_set = hour_panel.get_value_set ();
+   if (hour_set.size () == 0) { return; }
+   const Integer last_hour = *(hour_set.rbegin ());
+   const Integer hour = (last_hour + 1) % 24;
+   hour_panel.set_value (hour);
+}
+
+void
+Gwsb_Free::decrement_hour ()
+{
+   set<Integer> hour_set = hour_panel.get_value_set ();
+   if (hour_set.size () == 0) { return; }
+   const Integer first_hour = *(hour_set.begin ());
+   const Integer hour = (first_hour + 23) % 24;
+   hour_panel.set_value (hour);
+}
+
+void
+Gwsb_Free::render (const RefPtr<Context>& cr,
+                   const Wind_Disc& wind_disc,
+                   const Record::Set& record_set,
+                   const set<Index_2D>& gradient_wind_index_set,
+                   const Box_2D& viewport,
+                   const bool outline,
+                   const bool with_noise)
+{
+
+   wind_disc.render_bg (cr);
+
+   const Real dir_noise = (with_noise ? 5 : 0);
+   record_set.render_scatter_plot (cr, wind_disc, dir_noise);
+
+   const Real hue = 0.33;
+   if (outline) { wind_disc.render_percentage_d (cr, hue); }
+   render_count (cr, record_set.size (), viewport);
+
+   wind_disc.render_percentages (cr);
+   wind_disc.render_index_set (cr, gradient_wind_index_set);
+
+}
+
+void
+Gwsb_Free::render ()
+{
+
+
+   if (!packed) { pack (); }
+
+   const Dstring& station = station_panel.get_station ();
+   const Dstring& month_string = month_panel.get_string ();
+   const Dstring& hour_string = hour_panel.get_string ();
+   const bool outline = (bottom_panel.with_outline ());
+   const Real with_noise = bottom_panel.with_noise ();
+
+   title.set (month_string, station, hour_string);
+   set_foreground_ready (false);
+
+   wind_disc.clear ();
+   Station_Data& station_data = data.get_station_data (station);
+   station_data.feed (wind_disc, *this);
+   const Record::Set* record_set_ptr = station_data.get_record_set_ptr (*this);
+
+   const RefPtr<Context> cr = Context::create (image_surface);
+   render_bg (cr, width, height, viewport);
+   render (cr, wind_disc, *record_set_ptr,
+      gradient_wind_index_set, viewport, outline, with_noise);
+   Dcanvas::cairo (cr);
+
+   delete record_set_ptr;
+}
+
+void
+Gwsb_Free::render_refresh ()
+{
+
+   const Dstring& station = station_panel.get_station ();
+   const Dstring& month_string = month_panel.get_string ();
+   const Dstring& hour_string = hour_panel.get_string ();
+
+   title.set (month_string, station, hour_string);
+   set_foreground_ready (false);
+
+   render ();
+   queue_draw ();
 
 }
 

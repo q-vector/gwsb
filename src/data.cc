@@ -49,17 +49,9 @@ Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
 {
 
    const Real scatter_ring_size = 8;
-
-   Real alpha = 50.0 / wind_disc.get_total_count ();
-   if (alpha < 0.04) { alpha = 0.04; }
-   if (alpha > 0.30) { alpha = 0.30; }
-
+   const Real n = Real (wind_disc.get_total_count ());
+   const Real alpha = bound (50.0 / n, 0.30, 0.04);
    const Ring ring (scatter_ring_size);
-
-   const Wind_Disc::Transform& t = wind_disc.get_transform ();
-   const Transform_2D& transform = t;
-   const Real max_speed = t.get_max_speed ();
-   const Real calm_threshold = wind_disc.get_thresholds ().front ().value;
 
    const Sample* sample_ptr = get_gradient_temperature_sample_ptr ();
    const Real mean = sample_ptr->get_mean ();
@@ -69,27 +61,28 @@ Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
    const Real delta_temp = max_temp - min_temp;
    delete sample_ptr;
 
+   const Wind_Disc::Transform& t = wind_disc.get_transform ();
+
    for (const Record& record : *this)
    {
 
-      const Real gradient_temperature = record.gradient_temperature;
+      const Real gt_residual = record.gradient_temperature - mean;
       const Wind& wind = record.wind;
       const Real multiplier = 0.51444444;
       const Real speed = wind.get_speed () / multiplier;
 
       if (wind.is_naw ()) { continue; }
-      if (speed < calm_threshold) { continue; }
-      if (speed > max_speed) { continue; }
 
-      Real hue = (gradient_temperature - mean < 0) ? 0.666 : 0;
-      Real saturation = bound (fabs (gradient_temperature - mean) / (2 * sd));
-      Real brightness = 0.5;
+      const Real hue = (gt_residual < 0) ? 0.666 : 0;
+      const Real saturation = bound (fabs (gt_residual) / (2 * sd));
+      const Real brightness = 0.5;
       const Color& color = Color::hsb (hue, saturation, brightness, alpha);
 
       const Real r = random (dir_scatter, -dir_scatter);
       const Real direction = wind.get_direction () + r;
+      const Point_2D p = t.transform (Point_2D (direction, speed));
 
-      ring.cairo (cr, transform.transform (Point_2D (direction, speed)));
+      ring.cairo (cr, p);
       color.cairo (cr);
       cr->fill_preserve ();
       color.with_alpha (alpha * 2).cairo (cr);
@@ -156,23 +149,21 @@ void
 Station_Data::read (const Dstring& file_path)
 {
 
-   const Integer line_size = 128;  
-   char c_input_line[line_size];
-   gzFile file = get_gzfile (file_path);
+   igzstream file (file_path.get_string ());
 
-   while (gz_readline (c_input_line, line_size, file) != NULL)
+   for (string il; std::getline (file, il); )
    {
 
-      const Dstring input_line (c_input_line);
+      const Dstring input_line (il);
       const Tokens tokens (input_line, ":");
 
       const Dtime& dtime (tokens[0]);
 
-      const Real gw_direction = atof (tokens[1].c_str ());
-      const Real gw_speed = atof (tokens[2].c_str ());
-      const Real gradient_temperature = atof (tokens[3].c_str ());
-      const Real direction = atof (tokens[4].c_str ());
-      const Real speed = atof (tokens[5].c_str ());
+      const Real gw_direction = stof (tokens[1]);
+      const Real gw_speed = stof (tokens[2]);
+      const Real gradient_temperature = stof (tokens[3]);
+      const Real direction = stof (tokens[4]);
+      const Real speed = stof (tokens[5]);
 
       const Wind& gwind = Wind::direction_speed (gw_direction, gw_speed);
       const Wind& wind = Wind::direction_speed (direction, speed);
@@ -185,17 +176,17 @@ Station_Data::read (const Dstring& file_path)
 
    }
 
-   gzclose (file);
+   file.close ();
 
 }
 
 void
 Station_Data::feed (Wind_Rose& wind_rose,
-                    const Gwsb& gwsb) const
+                    const Gwsb_Free& gwsb_free) const
 {
 
-   const set<Integer>& month_set = gwsb.get_month_set ();
-   const set<Integer>& hour_set = gwsb.get_hour_set ();
+   const set<Integer>& month_set = gwsb_free.get_month_set ();
+   const set<Integer>& hour_set = gwsb_free.get_hour_set ();
 
    for (const Integer& month : month_set)
    {
@@ -212,7 +203,7 @@ Station_Data::feed (Wind_Rose& wind_rose,
 
             const Wind& gradient_wind = record.gradient_wind;
 
-            if (gwsb.match_gradient_wind (gradient_wind))
+            if (gwsb_free.match_gradient_wind (gradient_wind))
             {
                wind_rose.add_wind (record.wind);
             }
@@ -226,13 +217,13 @@ Station_Data::feed (Wind_Rose& wind_rose,
 }
 
 Record::Set*
-Station_Data::get_record_set_ptr (const Gwsb& gwsb) const
+Station_Data::get_record_set_ptr (const Gwsb_Free& gwsb_free) const
 {
 
    Record::Set* record_set_ptr = new Record::Set ();
 
-   const set<Integer>& month_set = gwsb.get_month_set ();
-   const set<Integer>& hour_set = gwsb.get_hour_set ();
+   const set<Integer>& month_set = gwsb_free.get_month_set ();
+   const set<Integer>& hour_set = gwsb_free.get_hour_set ();
 
    for (const Integer& month : month_set)
    {
@@ -249,7 +240,7 @@ Station_Data::get_record_set_ptr (const Gwsb& gwsb) const
 
             const Wind& gradient_wind = record.gradient_wind;
 
-            if (gwsb.match_gradient_wind (gradient_wind))
+            if (gwsb_free.match_gradient_wind (gradient_wind))
             {
                record_set_ptr->insert (record);
             }

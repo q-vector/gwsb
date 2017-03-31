@@ -15,8 +15,8 @@ namespace gwsb
 
       private:
 
-         Gwsb&
-         gwsb;
+         Gwsb_Free&
+         gwsb_free;
 
          Dtoggle_Button
          noise_button;
@@ -29,7 +29,7 @@ namespace gwsb
 
       public:
 
-         Bottom_Panel (Gwsb& gwsb);
+         Bottom_Panel (Gwsb_Free& gwsb_free);
 
          ~Bottom_Panel ();
 
@@ -44,7 +44,7 @@ namespace gwsb
    class Gwsb : public Dcanvas
    {
 
-      private:
+      protected:
 
          Gtk::Window*
          window_ptr;
@@ -57,24 +57,6 @@ namespace gwsb
 
          Wind_Disc
          wind_disc;
-
-         Month_Panel
-         month_panel;
-
-         Hour_Panel
-         hour_panel;
-
-         Station_Panel
-         station_panel;
-
-         Bottom_Panel
-         bottom_panel;
-
-         set<Index_2D>
-         gradient_wind_index_set;
-
-         bool
-         selecting_gradient_wind;
 
          void
          pack ();
@@ -104,6 +86,47 @@ namespace gwsb
 
          Criteria&
          get_criteria ();
+
+         void
+         save_image ();
+
+         bool
+         save (const Dstring& file_path);
+
+   };
+
+   class Gwsb_Free : public Gwsb
+   {
+
+      protected:
+
+         Station_Panel
+         station_panel;
+
+         Month_Panel
+         month_panel;
+
+         Hour_Panel
+         hour_panel;
+
+         Bottom_Panel
+         bottom_panel;
+
+         set<Index_2D>
+         gradient_wind_index_set;
+
+         bool
+         selecting_gradient_wind;
+
+      public:
+
+         Gwsb_Free (Gtk::Window* window_ptr,
+                    const Size_2D& size_2d,
+                    const Data& data,
+                    const Wind_Disc& wind_disc);
+
+         void
+         pack ();
 
          const set<Index_2D>&
          get_gradient_wind_index_set () const;
@@ -166,12 +189,6 @@ namespace gwsb
 
          void
          render_refresh ();
-
-         void
-         save_image ();
-
-         bool
-         save (const Dstring& file_path);
 
    };
 

@@ -13,7 +13,7 @@ namespace gwsb
 {
 
    class Criteria;
-   class Gwsb;
+   class Gwsb_Free;
 
    class Record
    {
@@ -100,10 +100,10 @@ namespace gwsb
 
          void
          feed (Wind_Rose& wind_rose,
-               const Gwsb& gwsb) const;
+               const Gwsb_Free& gwsb_free) const;
 
          Record::Set*
-         get_record_set_ptr (const Gwsb& gwsb) const;
+         get_record_set_ptr (const Gwsb_Free& gwsb_free) const;
 
          Record::Set*
          get_record_set_ptr (const set<Integer>& month_set,
@@ -148,5 +148,5 @@ namespace gwsb
 
 };
 
-#endif /* DENISE_GTKMM_H */
+#endif /* GWSB_DATA_H */
 
