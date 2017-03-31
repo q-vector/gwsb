@@ -84,14 +84,17 @@ namespace gwsb
          const Data&
          get_data () const;
 
-         Criteria&
-         get_criteria ();
-
          void
          save_image ();
 
          bool
          save (const Dstring& file_path);
+
+         virtual void
+         render () = 0;
+
+         virtual void
+         render_refresh () = 0;
 
    };
 

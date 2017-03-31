@@ -9,39 +9,52 @@
 namespace gwsb
 {
 
+   class Gwsb;
    class Gwsb_Free;
    class Month_Panel;
    class Hour_Panel;
-   class Station_Panel;
 
    class Selection_Panel : public Dpack_Box
    {
 
       protected:
 
-         class Button : public Dbutton
+         class Month_Map : public map<Dstring, Integer>
          {
-
-            private:
-
-               const Integer
-               value;
-
-               Selection_Panel&
-               selection_panel;
 
             public:
 
-               Button (Selection_Panel& selection_panel,
-                       const Integer value,
-                       const Gwsb_Free& gwsb_free,
-                       const string& str,
-                       const Real font_size);
+               Month_Map ();
 
-               void
-               clicked (const Dmouse_Button_Event& event);
+               Integer
+               get_integer (const Dstring& str) const;
 
          };
+
+         class Status : public map<Dstring, bool>
+         {
+
+            public:
+
+               Integer
+               number_on () const;
+
+               bool
+               zero_on () const;
+
+               bool
+               one_on () const;
+
+               const Dstring&
+               last () const;
+
+               const Dstring&
+               first () const;
+
+         };
+
+         Month_Map
+         month_map;
 
          Dpack_Box
          box;
@@ -55,14 +68,11 @@ namespace gwsb
          Gwsb_Free&
          gwsb_free;
 
-         map<Integer, Dbutton*>
+         map<Dstring, Dbutton*>
          button_ptr_map;
 
-         map<Integer, bool>
-         status_map;
-
-         map<Integer, string>
-         string_map;
+         Status
+         status;
 
          const Color
          led_color;
@@ -75,28 +85,27 @@ namespace gwsb
 
          ~Selection_Panel ();
 
-         set<Integer>
-         get_value_set () const;
+         void
+         handle (const Dstring& str,
+                 const Devent& event);
 
          void
-         set_value (const Integer value,
+         set_value (const Dstring& str,
                     const bool render_and_refrsh = true);
 
          void
-         toggle (const Integer month);
+         toggle (const Dstring& str);
+
+         void
+         increment ();
+
+         void
+         decrement ();
 
    };
 
    class Month_Panel : public Selection_Panel
    {
-
-      private:
-
-         map<Integer, string>
-         string_map;
-
-         void
-         add_month (const Integer month);
 
       public:
 
@@ -111,14 +120,6 @@ namespace gwsb
 
    class Hour_Panel : public Selection_Panel
    {
-
-      private:
-
-         map<Integer, string>
-         string_map;
-
-         void
-         add_hour (const Integer hour);
 
       public:
 
@@ -136,36 +137,13 @@ namespace gwsb
 
       private:
 
-         class Button : public Dbutton
-         {
-
-            private:
-
-               const string
-               station;
-
-               Station_Panel&
-               station_panel;
-
-            public:
-
-               Button (Station_Panel& station_panel,
-                       const string& station,
-                       const Gwsb_Free& gwsb_free,
-                       const Real font_size);
-
-               void
-               clicked (const Dmouse_Button_Event& event);
-
-         };
-
-         Gwsb_Free&
-         gwsb_free;
+         Gwsb&
+         gwsb;
 
          string
          station;
 
-         map<string, Dbutton*>
+         map<Dstring, Dbutton*>
          button_ptr_map;
 
          const Color
@@ -173,7 +151,7 @@ namespace gwsb
 
       public:
 
-         Station_Panel (Gwsb_Free& gwsb_free,
+         Station_Panel (Gwsb& gwsb,
                         const Real margin,
                         const Real spacing);
 

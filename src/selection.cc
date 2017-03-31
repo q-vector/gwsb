@@ -6,23 +6,63 @@ using namespace std;
 using namespace denise;
 using namespace gwsb;
 
-Selection_Panel::Button::Button (Selection_Panel& selection_panel,
-                                 const Integer value,
-                                 const Gwsb_Free& gwsb_free,
-                                 const string& str,
-                                 const Real font_size)
-   : Dbutton (gwsb_free, str, font_size),
-     selection_panel (selection_panel),
-     value (value)
+Selection_Panel::Month_Map::Month_Map ()
 {
+   insert (make_pair ("Jan", 1));
+   insert (make_pair ("Feb", 2));
+   insert (make_pair ("Mar", 3));
+   insert (make_pair ("Apr", 4));
+   insert (make_pair ("May", 5));
+   insert (make_pair ("Jun", 6));
+   insert (make_pair ("Jul", 7));
+   insert (make_pair ("Aug", 8));
+   insert (make_pair ("Sep", 9));
+   insert (make_pair ("Oct", 10));
+   insert (make_pair ("Nov", 11));
+   insert (make_pair ("Dec", 12));
 }
 
-void
-Selection_Panel::Button::clicked (const Dmouse_Button_Event& event)
+Integer
+Selection_Panel::Month_Map::get_integer (const Dstring& str) const
 {
-   const bool control_pressed = (event.state & GDK_CONTROL_MASK);
-   if (control_pressed) { selection_panel.toggle (value); }
-   else { selection_panel.set_value (value); }
+   auto i = this->find (str);
+   if (i != end ()) { return i->second; }
+   return -1;
+}
+
+Integer
+Selection_Panel::Status::number_on () const
+{
+   Integer n;
+   for (auto& i : *this) { if (i.second) { n++; } }
+   return n;
+}
+
+bool
+Selection_Panel::Status::zero_on () const
+{
+   return (number_on () == 0);
+}
+
+bool
+Selection_Panel::Status::one_on () const
+{
+   return (number_on () == 1);
+}
+
+const Dstring&
+Selection_Panel::Status::last () const
+{
+   for (auto i = rbegin (); i != rend (); i++)
+   {
+      if (i->second) { return i->first; }
+   }
+}
+
+const Dstring&
+Selection_Panel::Status::first () const
+{
+   for (auto& i : *this) { if (i.second) { return i.first; } }
 }
 
 Selection_Panel::Selection_Panel (Gwsb_Free& gwsb_free,
@@ -35,6 +75,7 @@ Selection_Panel::Selection_Panel (Gwsb_Free& gwsb_free,
      decrement_button (gwsb_free, "-", 12),
      increment_button (gwsb_free, "+", 12)
 {
+
    box.pack_back (decrement_button);
    box.pack_back (increment_button);
    pack_back (box);
@@ -42,49 +83,30 @@ Selection_Panel::Selection_Panel (Gwsb_Free& gwsb_free,
 
 Selection_Panel::~Selection_Panel ()
 {
-
-   typedef map<Integer, Dbutton*>::iterator Iterator;
-   for (Iterator iterator = button_ptr_map.begin ();
-        iterator != button_ptr_map.end (); iterator++)
-   {
-      Dbutton* button_ptr = iterator->second;
-      delete button_ptr;
-   }
-
-}
-
-set<Integer>
-Selection_Panel::get_value_set () const
-{
-
-   std::set<Integer> value_set;
-
-   for (map<Integer, bool>::const_iterator iterator = status_map.begin ();
-        iterator != status_map.end (); iterator++)
-   {
-      const Integer& value = iterator->first;
-      const bool& is_on = iterator->second;
-      if (is_on) { value_set.insert (value); }
-   }
-
-   return value_set;
-
+   for (auto& i : button_ptr_map) { delete i.second; }
 }
 
 void
-Selection_Panel::set_value (const Integer value,
+Selection_Panel::handle (const Dstring& str,
+                         const Devent& event)
+{
+   if (event.control ()) { toggle (str); }
+   else { set_value (str); }
+}
+
+void
+Selection_Panel::set_value (const Dstring& str,
                             const bool render_and_refresh)
 {
 
-   for (map<Integer, bool>::iterator iterator = status_map.begin ();
-        iterator != status_map.end (); iterator++)
+   for (auto& i : status)
    {
 
-      const Integer v = iterator->first;
-      bool& is_on = iterator->second;
-      is_on = (v == value);
+      const Dstring& s = i.first;
+      bool& is_on = i.second;
+      is_on = (s == str);
 
-      Dbutton& button = *(button_ptr_map[v]);
+      Dbutton& button = *(button_ptr_map[s]);
       if (is_on) { button.set_led_color (led_color); }
       else { button.set_led_color (Color (GSL_NAN, GSL_NAN, GSL_NAN)); }
 
@@ -92,19 +114,20 @@ Selection_Panel::set_value (const Integer value,
 
    if (render_and_refresh)
    {
-      gwsb_free.render_refresh ();
+      gwsb_free.render ();
+      gwsb_free.queue_draw ();
    }
 
 }
 
 void
-Selection_Panel::toggle (const Integer value)
+Selection_Panel::toggle (const Dstring& str)
 {
 
-   bool& is_on = status_map[value];
+   bool& is_on = status[str];
    is_on = !is_on;
 
-   Dbutton& button = *(button_ptr_map[value]);
+   Dbutton& button = *(button_ptr_map[str]);
    if (is_on) { button.set_led_color (led_color); }
    else { button.set_led_color (Color (GSL_NAN, GSL_NAN, GSL_NAN)); }
 
@@ -114,12 +137,22 @@ Selection_Panel::toggle (const Integer value)
 }
 
 void
-Month_Panel::add_month (const Integer month)
+Selection_Panel::increment ()
 {
-   const string& str = string_map[month].substr (0, 3);
-   Button* button_ptr = new Button (*this, month, gwsb_free, str, 12);
-   button_ptr_map.insert (make_pair (month, button_ptr));
-   pack_back (*button_ptr);
+   if (status.zero_on ()) { return; }
+   auto iterator = (month_map.find (status.last ()))++;
+   if (iterator == month_map.end ()) { iterator = month_map.begin (); }
+   set_value (iterator->first);
+}
+
+void
+Selection_Panel::decrement ()
+{
+   if (status.zero_on ()) { return; }
+   auto iterator = month_map.find (status.first ());
+   if (iterator == month_map.begin ()) { iterator = month_map.end (); }
+   iterator--;
+   set_value (iterator->first);
 }
 
 Month_Panel::Month_Panel (Gwsb_Free& gwsb_free,
@@ -128,23 +161,15 @@ Month_Panel::Month_Panel (Gwsb_Free& gwsb_free,
    : Selection_Panel (gwsb_free, margin, spacing)
 {
 
-   string_map.insert (make_pair (1, "January"));
-   string_map.insert (make_pair (2, "Feburary"));
-   string_map.insert (make_pair (3, "March"));
-   string_map.insert (make_pair (4, "April"));
-   string_map.insert (make_pair (5, "May"));
-   string_map.insert (make_pair (6, "June"));
-   string_map.insert (make_pair (7, "July"));
-   string_map.insert (make_pair (8, "August"));
-   string_map.insert (make_pair (9, "September"));
-   string_map.insert (make_pair (10, "October"));
-   string_map.insert (make_pair (11, "November"));
-   string_map.insert (make_pair (12, "December"));
-
-   for (Integer month = 1; month <= 12; month++)
+   for (auto& i : month_map)
    {
-      add_month (month);
-      status_map.insert (make_pair (month, false));
+      const Dstring& str = i.first;
+      Dbutton* button_ptr = new Dbutton (gwsb_free, str, 12);
+      button_ptr->get_full_str_signal ().connect (sigc::mem_fun (
+         *this, &Selection_Panel::handle));
+      button_ptr_map.insert (make_pair (str, button_ptr));
+      pack_back (*button_ptr);
+      status.insert (make_pair (str, false));
    }
 
    decrement_button.get_signal ().connect (sigc::mem_fun (
@@ -158,6 +183,18 @@ string
 Month_Panel::get_string () const
 {
 
+   Dstring s;
+
+   for (auto& i : status)
+   {
+      const Dstring& str = i.first;
+      const bool is_on = i.second;
+      if (is_on) { s += ":" + str; }
+   }
+
+   return s.substr (1);
+
+/*
    const set<Integer>& month_set = get_value_set ();
 
    if (month_set.size () == 1)
@@ -170,16 +207,8 @@ Month_Panel::get_string () const
    {
       return "Multiple Months";
    }
+*/
 
-}
-
-void
-Hour_Panel::add_hour (const Integer hour)
-{
-   const string& str = string_map[hour];
-   Button* button_ptr = new Button (*this, hour, gwsb_free, str, 12);
-   button_ptr_map.insert (make_pair (hour, button_ptr));
-   pack_back (*button_ptr);
 }
 
 Hour_Panel::Hour_Panel (Gwsb_Free& gwsb_free,
@@ -191,9 +220,12 @@ Hour_Panel::Hour_Panel (Gwsb_Free& gwsb_free,
    for (Integer hour = 0; hour < 24; hour++)
    {
       const Dstring& str = Dstring::render ("%02dZ", hour);
-      string_map.insert (make_pair (hour, str));
-      add_hour (hour);
-      status_map.insert (make_pair (hour, false));
+      Dbutton* button_ptr = new Dbutton (gwsb_free, str, 12);
+      button_ptr->get_full_str_signal ().connect (sigc::mem_fun (
+         *this, &Selection_Panel::handle));
+      button_ptr_map.insert (make_pair (str, button_ptr));
+      pack_back (*button_ptr);
+      status.insert (make_pair (str, false));
    }
 
    decrement_button.get_signal ().connect (sigc::mem_fun (
@@ -207,6 +239,18 @@ string
 Hour_Panel::get_string () const
 {
 
+   Dstring s;
+
+   for (auto& i : status)
+   {
+      const Dstring& str = i.first;
+      const bool is_on = i.second;
+      if (is_on) { s += ":" + str; }
+   }
+
+   return s.substr (1);
+
+/*
    const set<Integer>& hour_set = get_value_set ();
 
    if (hour_set.size () == 1)
@@ -219,74 +263,51 @@ Hour_Panel::get_string () const
    {
       return "Multiple Hours";
    }
+*/
 
 }
 
-Station_Panel::Button::Button (Station_Panel& station_panel,
-                               const string& station,
-                               const Gwsb_Free& gwsb_free,
-                               const Real font_size)
-   : Dbutton (gwsb_free, station, font_size),
-     station_panel (station_panel),
-     station (station)
-{
-}
-
-void
-Station_Panel::Button::clicked (const Dmouse_Button_Event& event)
-{
-   const bool control_pressed = (event.state & GDK_CONTROL_MASK);
-   station_panel.set_station (station);
-}
-
-Station_Panel::Station_Panel (Gwsb_Free& gwsb_free,
+Station_Panel::Station_Panel (Gwsb& gwsb,
                               const Real margin,
                               const Real spacing)
-   : Dgrid_Box (gwsb_free, margin, spacing),
-     gwsb_free (gwsb_free),
+   : Dgrid_Box (gwsb, margin, spacing),
+     gwsb (gwsb),
      led_color (1, 0, 0)
 {
 
-   const Data& data = gwsb_free.get_data ();
+   const Data& data = gwsb.get_data ();
    const Tokens& station_tokens = data.get_station_tokens ();
 
    station = station_tokens.front ();
 
+   Integer id = 0;
    const Integer n = 9;
 
-   for (Tokens::const_iterator iterator = station_tokens.begin ();
-        iterator != station_tokens.end (); iterator++)
+   for (const string& station : station_tokens)
    {
-      const string& station = *(iterator);
-      const Integer id = distance (station_tokens.begin (), iterator);
       const Integer i = id % n;
       const Integer j = id / n;
-      Button* button_ptr = new Button (*this, station, gwsb_free, 12);
+      Dbutton* button_ptr = new Dbutton (gwsb, station, 12);
       button_ptr_map.insert (make_pair (station, button_ptr));
+      button_ptr->get_str_signal ().connect (sigc::mem_fun (
+         *this, &Station_Panel::set_station));
       pack (*button_ptr, Index_2D (i, j));
+      id++;
    }
 
 }
 
 Station_Panel::~Station_Panel ()
 {
-
-   typedef map<string, Dbutton*>::iterator Iterator;
-   for (Iterator iterator = button_ptr_map.begin ();
-        iterator != button_ptr_map.end (); iterator++)
-   {
-      Dbutton* button_ptr = iterator->second;
-      delete button_ptr;
-   }
-
+   for (auto& i : button_ptr_map) { delete i.second; }
 }
 
 void
 Station_Panel::set_station (const string& station)
 {
    this->station = station;
-   gwsb_free.render ();
-   gwsb_free.queue_draw ();
+   gwsb.render ();
+   gwsb.queue_draw ();
 }
 
 const string&

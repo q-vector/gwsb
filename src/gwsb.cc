@@ -289,8 +289,8 @@ Gwsb_Free::Gwsb_Free (Gtk::Window* window_ptr,
 {
 
    const Dtime now;
-   month_panel.set_value (now.get_month (), false);
-   hour_panel.set_value (now.get_hour (), false);
+   month_panel.set_value ("Mar", false);
+   hour_panel.set_value ("10Z", false);
 
    register_widget (station_panel);
    register_widget (month_panel);
