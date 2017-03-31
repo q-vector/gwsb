@@ -55,7 +55,7 @@ namespace gwsb
          Data
          data;
 
-         Wind_Disc
+         Wind_Disc&
          wind_disc;
 
          void
@@ -77,7 +77,7 @@ namespace gwsb
          Gwsb (Gtk::Window* window_ptr,
                const Size_2D& size_2d,
                const Data& data,
-               const Wind_Disc& wind_disc);
+               Wind_Disc& wind_disc);
 
          ~Gwsb ();
 
@@ -123,7 +123,7 @@ namespace gwsb
          Gwsb_Free (Gtk::Window* window_ptr,
                     const Size_2D& size_2d,
                     const Data& data,
-                    const Wind_Disc& wind_disc);
+                    Wind_Disc& wind_disc);
 
          void
          pack ();

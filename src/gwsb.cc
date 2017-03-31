@@ -146,7 +146,7 @@ Gwsb::render_count (const RefPtr<Context>& cr,
 Gwsb::Gwsb (Gtk::Window* window_ptr,
             const Size_2D& size_2d,
             const Data& data,
-            const Wind_Disc& wind_disc)
+            Wind_Disc& wind_disc)
    : Dcanvas (*window_ptr),
      wind_disc (wind_disc),
      window_ptr (window_ptr),
@@ -279,7 +279,7 @@ Gwsb::save (const Dstring& file_path)
 Gwsb_Free::Gwsb_Free (Gtk::Window* window_ptr,
                       const Size_2D& size_2d,
                       const Data& data,
-                      const Wind_Disc& wind_disc)
+                      Wind_Disc& wind_disc)
    : Gwsb (window_ptr, size_2d, data, wind_disc),
      station_panel (*this, 0, 6),
      month_panel (*this, 0, 6),
