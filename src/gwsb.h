@@ -57,6 +57,9 @@ namespace gwsb
          Wind_Disc&
          wind_disc;
 
+         Dstring
+         station;
+
          Station_Panel
          station_panel;
 
@@ -96,6 +99,9 @@ namespace gwsb
          bool
          save (const Dstring& file_path);
 
+         virtual void
+         set_station (const Dstring& station) = 0;
+
          virtual const Tokens&
          get_station_tokens () const = 0; 
 
@@ -110,12 +116,6 @@ namespace gwsb
 
          virtual bool
          on_mouse_button_released (const Dmouse_Button_Event& event);
-
-         virtual void
-         render () = 0;
-
-         virtual void
-         render_refresh () = 0;
 
    };
 
@@ -148,6 +148,9 @@ namespace gwsb
 
          virtual const Tokens&
          get_station_tokens () const; 
+
+         void
+         set_station (const Dstring& station);
 
          const set<Index_2D>&
          get_gradient_wind_index_set () const;
@@ -194,10 +197,10 @@ namespace gwsb
                  const bool with_noise);
 
          void
-         render ();
+         render_background_buffer (const RefPtr<Context>& cr);
 
          void
-         render_refresh ();
+         cairo (const RefPtr<Context>& cr);
 
    };
 
@@ -215,6 +218,9 @@ namespace gwsb
          Real
          gradient_wind_threshold;
 
+         void
+         handle_time_event ();
+
       public:
 
          Gwsb_Sequence (Gtk::Window* window_ptr,
@@ -229,17 +235,11 @@ namespace gwsb
          virtual const Tokens&
          get_station_tokens () const; 
 
+         void
+         set_station (const Dstring& station);
+
          bool
          on_key_pressed (const Dkey_Event& event);
-
-         bool
-         on_mouse_button_pressed (const Dmouse_Button_Event& event);
-
-         bool
-         on_mouse_motion (const Dmouse_Motion_Event& event);
-
-         bool
-         on_mouse_button_released (const Dmouse_Button_Event& event);
 
          bool
          on_mouse_scroll (const Dmouse_Scroll_Event& event);
@@ -253,10 +253,10 @@ namespace gwsb
                  const bool with_noise);
 
          void
-         render ();
+         render_background_buffer (const RefPtr<Context>& cr);
 
          void
-         render_refresh ();
+         cairo (const RefPtr<Context>& cr);
 
    };
 

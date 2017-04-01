@@ -34,6 +34,12 @@ Record::operator < (const Record& record) const
    return (dtime < record.dtime);
 }
 
+void
+Record::Set::feed (Wind_Rose& wind_rose) const
+{
+   for (const Record& record : *this) { wind_rose.add_wind (record.wind); }
+}
+
 Sample*
 Record::Set::get_gradient_temperature_sample_ptr () const
 {
@@ -186,44 +192,6 @@ Station_Data::read (const Dstring& file_path)
    }
 
    file.close ();
-
-}
-
-void
-Station_Data::feed (Wind_Rose& wind_rose,
-                    const Gwsb_Free& gwsb_free) const
-{
-
-   const Selection_Panel::Status& month_status = gwsb_free.get_month_status ();
-   const Selection_Panel::Status& hour_status = gwsb_free.get_hour_status ();
-
-   for (auto& m : month_status)
-   {
-
-      if (!m.second) { continue; }
-      const Record::Monthly& monthly = at (m.first);
-
-      for (auto& h : hour_status)
-      {
-
-         if (!h.second) { continue; }
-         const Record::Set& hourly = monthly.at (h.first);
-
-         for (const Record& record : hourly)
-         {
-
-            const Wind& gradient_wind = record.gradient_wind;
-
-            if (gwsb_free.match_gradient_wind (gradient_wind))
-            {
-               wind_rose.add_wind (record.wind);
-            }
-
-         }
-
-      }
-
-   }
 
 }
 

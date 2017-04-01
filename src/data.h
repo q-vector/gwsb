@@ -52,6 +52,9 @@ namespace gwsb
 
             public:
 
+               void
+               feed (Wind_Rose& wind_rose) const;
+
                Sample*
                get_gradient_temperature_sample_ptr () const;
 
@@ -98,10 +101,6 @@ namespace gwsb
 
          void
          read (const Dstring& file_path);
-
-         void
-         feed (Wind_Rose& wind_rose,
-               const Gwsb_Free& gwsb_free) const;
 
          Record::Set*
          get_record_set_ptr (const Gwsb_Free& gwsb_free) const;

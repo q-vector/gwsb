@@ -153,6 +153,7 @@ Gwsb::Gwsb (Gtk::Window* window_ptr,
    : Dcanvas (*window_ptr),
      wind_disc (wind_disc),
      window_ptr (window_ptr),
+     station (station_tokens.front ()),
      station_panel (*this, station_tokens, 0, 6),
      option_panel (*this),
      data (data),
@@ -413,6 +414,13 @@ Gwsb_Free::get_station_tokens () const
    return data.get_station_tokens ();
 }
 
+void
+Gwsb_Free::set_station (const Dstring& station)
+{
+   this->station = station;
+   render_queue_draw ();
+}
+
 const set<Index_2D>&
 Gwsb_Free::get_gradient_wind_index_set () const
 {
@@ -563,8 +571,7 @@ Gwsb_Free::on_mouse_button_pressed (const Dmouse_Button_Event& event)
             }
          }
 
-         render ();
-         queue_draw ();
+         render_queue_draw ();
          return true;
          break;
 
@@ -591,8 +598,7 @@ Gwsb_Free::on_mouse_motion (const Dmouse_Motion_Event& event)
          const Index_2D& index_2d = wind_disc.get_index (gradient_wind);
          if (add_gradient_wind_index (index_2d, false, false))
          {
-            render ();
-            queue_draw ();
+            render_queue_draw ();
             return true;
          }
       }
@@ -677,48 +683,35 @@ Gwsb_Free::render (const RefPtr<Context>& cr,
 }
 
 void
-Gwsb_Free::render ()
+Gwsb_Free::render_background_buffer (const RefPtr<Context>& cr)
+{
+}
+
+void
+Gwsb_Free::cairo (const RefPtr<Context>& cr)
 {
 
    if (!packed) { pack (); }
 
-   const Dstring& station = station_panel.get_station ();
    const Dstring& month_string = month_panel.get_string ();
    const Dstring& hour_string = hour_panel.get_string ();
    const bool outline = (option_panel.with_outline ());
    const Real with_noise = option_panel.with_noise ();
 
    title.set (month_string, station, hour_string);
-   set_foreground_ready (false);
 
-   wind_disc.clear ();
    Station_Data& station_data = data.get_station_data (station);
-   station_data.feed (wind_disc, *this);
    const Record::Set* record_set_ptr = station_data.get_record_set_ptr (*this);
 
-   const RefPtr<Context> cr = Context::create (image_surface);
    render_bg (cr, width, height, viewport);
+
+   wind_disc.clear ();
+   record_set_ptr->feed (wind_disc);
    render (cr, wind_disc, *record_set_ptr,
       gradient_wind_index_set, viewport, outline, with_noise);
    Dcanvas::cairo (cr);
 
    delete record_set_ptr;
-
-}
-
-void
-Gwsb_Free::render_refresh ()
-{
-
-   const Dstring& station = station_panel.get_station ();
-   const Dstring& month_string = month_panel.get_string ();
-   const Dstring& hour_string = hour_panel.get_string ();
-
-   title.set (month_string, station, hour_string);
-   set_foreground_ready (false);
-
-   render ();
-   queue_draw ();
 
 }
 
@@ -739,6 +732,8 @@ Gwsb_Sequence::Gwsb_Sequence (Gtk::Window* window_ptr,
 
    time_chooser.get_signal ().connect (sigc::mem_fun (
       *this, &Gwsb::render_queue_draw));
+
+   set_station (sequence_map.get_station_tokens ().front ());
 
    register_widget (time_chooser);
 
@@ -784,6 +779,16 @@ Gwsb_Sequence::get_station_tokens () const
    return sequence_map.get_station_tokens ();
 }
 
+void
+Gwsb_Sequence::set_station (const Dstring& station)
+{
+   const Nwp_Gw::Sequence& sequence = sequence_map.at (station);
+   const set<Dtime>& time_set = sequence.get_time_set ();
+   const Time_Chooser::Shape time_chooser_shape (time_set);
+   time_chooser.set_shape (time_chooser_shape);
+   render_queue_draw ();
+}
+
 bool
 Gwsb_Sequence::on_key_pressed (const Dkey_Event& event)
 {
@@ -806,24 +811,6 @@ Gwsb_Sequence::on_key_pressed (const Dkey_Event& event)
    }
 
    return Gwsb::on_key_pressed (event);
-}
-
-bool
-Gwsb_Sequence::on_mouse_button_pressed (const Dmouse_Button_Event& event)
-{
-   return Gwsb::on_mouse_button_pressed (event);
-}
-
-bool
-Gwsb_Sequence::on_mouse_motion (const Dmouse_Motion_Event& event)
-{
-   return Gwsb::on_mouse_motion (event);
-}
-
-bool
-Gwsb_Sequence::on_mouse_button_released (const Dmouse_Button_Event& event)
-{
-   return Gwsb::on_mouse_button_released (event);
 }
 
 bool
@@ -879,21 +866,20 @@ Gwsb_Sequence::render (const RefPtr<Context>& cr,
 }
 
 void
-Gwsb_Sequence::render ()
+Gwsb_Sequence::render_background_buffer (const RefPtr<Context>& cr)
+{
+}
+
+void
+Gwsb_Sequence::cairo (const RefPtr<Context>& cr)
 {
 
    if (!packed) { pack (); }
 
-   const Dstring& station = station_panel.get_station ();
    const bool outline = (option_panel.with_outline ());
    const Real with_noise = option_panel.with_noise ();
 
    const Nwp_Gw::Sequence& sequence = sequence_map.at (station);
-
-   const set<Dtime>& time_set = sequence.get_time_set ();
-   const Time_Chooser::Shape time_chooser_shape (time_set);
-   time_chooser.set_shape (time_chooser_shape);
-
    const Dtime& dtime = time_chooser.get_time ();
    const Nwp_Gw& nwp_gw = sequence.at (dtime);
 
@@ -902,17 +888,16 @@ Gwsb_Sequence::render ()
    const Dstring& date_str = dtime.get_string ("%Y.%m.%d (%a)");
    const Dstring& time_str = dtime.get_string ("%H:%M UTC");
 
-   title.set (station);
    title.set (date_str, station, time_str);
-   set_foreground_ready (false);
 
    wind_disc.clear ();
    Station_Data& station_data = data.get_station_data (station);
    const Record::Set* record_set_ptr = station_data.get_record_set_ptr (
       month_str, hour_str, nwp_gw, gradient_wind_threshold);
 
-   const RefPtr<Context> cr = Context::create (image_surface);
    render_bg (cr, width, height, viewport);
+
+   record_set_ptr->feed (wind_disc);
    render (cr, wind_disc, *record_set_ptr, viewport, outline, with_noise);
 
    // render nwp_gw
@@ -945,10 +930,4 @@ Gwsb_Sequence::render ()
    delete record_set_ptr;
 
 }
-
-void
-Gwsb_Sequence::render_refresh ()
-{
-}
-
 

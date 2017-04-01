@@ -170,9 +170,6 @@ namespace gwsb
          Gwsb&
          gwsb;
 
-         string
-         station;
-
          map<Dstring, Dbutton*>
          button_ptr_map;
 
@@ -187,12 +184,6 @@ namespace gwsb
                         const Real spacing);
 
          ~Station_Panel ();
-
-         void
-         set_station (const string& station);
-
-         const string&
-         get_station () const;
 
    };
 

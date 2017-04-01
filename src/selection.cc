@@ -139,8 +139,7 @@ Selection_Panel::set_value (const Dstring& str,
 
    if (render_and_refresh)
    {
-      gwsb_free.render ();
-      gwsb_free.queue_draw ();
+      gwsb_free.render_queue_draw ();
    }
 
 }
@@ -156,8 +155,7 @@ Selection_Panel::toggle (const Dstring& str)
    if (is_on) { button.set_led_color (led_color); }
    else { button.set_led_color (Color (GSL_NAN, GSL_NAN, GSL_NAN)); }
 
-   gwsb_free.render ();
-   gwsb_free.queue_draw ();
+   gwsb_free.render_queue_draw ();
 
 }
 
@@ -296,31 +294,15 @@ Station_Panel::Station_Panel (Gwsb& gwsb,
       Dbutton* button_ptr = new Dbutton (gwsb, station, 12);
       button_ptr_map.insert (make_pair (station, button_ptr));
       button_ptr->get_str_signal ().connect (sigc::mem_fun (
-         *this, &Station_Panel::set_station));
+         gwsb, &Gwsb::set_station));
       pack (*button_ptr, Index_2D (i, j));
       id++;
    }
-
-   this->station = station_tokens.front ();
 
 }
 
 Station_Panel::~Station_Panel ()
 {
    for (auto& i : button_ptr_map) { delete i.second; }
-}
-
-void
-Station_Panel::set_station (const string& station)
-{
-   this->station = station;
-   gwsb.render_queue_draw ();
-   //gwsb.queue_draw ();
-}
-
-const string&
-Station_Panel::get_station () const
-{
-   return station;
 }
 
