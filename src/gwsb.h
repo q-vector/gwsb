@@ -117,6 +117,9 @@ namespace gwsb
          virtual bool
          on_mouse_button_released (const Dmouse_Button_Event& event);
 
+         void
+         render_background_buffer (const RefPtr<Context>& cr);
+
    };
 
    class Gwsb_Free : public Gwsb
@@ -197,9 +200,6 @@ namespace gwsb
                  const bool with_noise);
 
          void
-         render_background_buffer (const RefPtr<Context>& cr);
-
-         void
          cairo (const RefPtr<Context>& cr);
 
    };
@@ -251,9 +251,6 @@ namespace gwsb
                  const Box_2D& viewport,
                  const bool outline,
                  const bool with_noise);
-
-         void
-         render_background_buffer (const RefPtr<Context>& cr);
 
          void
          cairo (const RefPtr<Context>& cr);

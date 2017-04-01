@@ -342,6 +342,12 @@ Gwsb::on_mouse_button_released (const Dmouse_Button_Event& event)
 
 }
 
+void
+Gwsb::render_background_buffer (const RefPtr<Context>& cr)
+{
+   render_bg (cr, width, height, viewport);
+}
+
 Gwsb_Free::Gwsb_Free (Gtk::Window* window_ptr,
                       const Size_2D& size_2d,
                       const Data& data,
@@ -683,11 +689,6 @@ Gwsb_Free::render (const RefPtr<Context>& cr,
 }
 
 void
-Gwsb_Free::render_background_buffer (const RefPtr<Context>& cr)
-{
-}
-
-void
 Gwsb_Free::cairo (const RefPtr<Context>& cr)
 {
 
@@ -702,8 +703,6 @@ Gwsb_Free::cairo (const RefPtr<Context>& cr)
 
    Station_Data& station_data = data.get_station_data (station);
    const Record::Set* record_set_ptr = station_data.get_record_set_ptr (*this);
-
-   render_bg (cr, width, height, viewport);
 
    wind_disc.clear ();
    record_set_ptr->feed (wind_disc);
@@ -866,11 +865,6 @@ Gwsb_Sequence::render (const RefPtr<Context>& cr,
 }
 
 void
-Gwsb_Sequence::render_background_buffer (const RefPtr<Context>& cr)
-{
-}
-
-void
 Gwsb_Sequence::cairo (const RefPtr<Context>& cr)
 {
 
@@ -895,10 +889,9 @@ Gwsb_Sequence::cairo (const RefPtr<Context>& cr)
    const Record::Set* record_set_ptr = station_data.get_record_set_ptr (
       month_str, hour_str, nwp_gw, gradient_wind_threshold);
 
-   render_bg (cr, width, height, viewport);
-
    record_set_ptr->feed (wind_disc);
    render (cr, wind_disc, *record_set_ptr, viewport, outline, with_noise);
+   delete record_set_ptr;
 
    // render nwp_gw
    {
@@ -926,8 +919,6 @@ Gwsb_Sequence::cairo (const RefPtr<Context>& cr)
    }
 
    Dcanvas::cairo (cr);
-
-   delete record_set_ptr;
 
 }
 
