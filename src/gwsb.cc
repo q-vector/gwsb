@@ -7,23 +7,23 @@ using namespace std;
 using namespace denise;
 using namespace gwsb;
 
-Bottom_Panel::Bottom_Panel (Gwsb_Free& gwsb_free)
-   : Drawer_Panel (gwsb_free, true, 12),
-     gwsb_free (gwsb_free),
-     noise_button (gwsb_free, "+Noise", 12),
-     outline_button (gwsb_free, "Outline", 12),
-     save_button (gwsb_free, "Save", 12)
+Option_Panel::Option_Panel (Gwsb& gwsb)
+   : Drawer_Panel (gwsb, true, 12),
+     gwsb (gwsb),
+     noise_button (gwsb, "+Noise", 12),
+     outline_button (gwsb, "Outline", 12),
+     save_button (gwsb, "Save", 12)
 {
 
    add_drawer ("Option");
    add_drawer ("Tool");
 
    noise_button.get_signal ().connect (sigc::mem_fun (
-      gwsb_free, &Gwsb_Free::render_queue_draw));
+      gwsb, &Gwsb::render_queue_draw));
    outline_button.get_signal ().connect (sigc::mem_fun (
-      gwsb_free, &Gwsb_Free::render_queue_draw));
+      gwsb, &Gwsb::render_queue_draw));
    save_button.get_signal ().connect (sigc::mem_fun (
-      gwsb_free, &Gwsb_Free::save_image));
+      gwsb, &Gwsb::save_image));
 
    add_widget_ptr ("Option", &noise_button);
    add_widget_ptr ("Option", &outline_button);
@@ -31,18 +31,14 @@ Bottom_Panel::Bottom_Panel (Gwsb_Free& gwsb_free)
 
 }
 
-Bottom_Panel::~Bottom_Panel ()
-{
-}
-
 bool
-Bottom_Panel::with_noise () const
+Option_Panel::with_noise () const
 {
    return noise_button.is_switched_on ();
 }
 
 bool
-Bottom_Panel::with_outline () const
+Option_Panel::with_outline () const
 {
    return outline_button.is_switched_on ();
 }
@@ -85,6 +81,12 @@ Gwsb::pack ()
    const Real origin_x = viewport_x + viewport_width / 2;
    const Real origin_y = viewport_y + viewport_height / 2;
    const Point_2D origin (origin_x, origin_y);
+
+   station_panel.being_packed (sp_anchor, sp_width, sp_height);
+   station_panel.pack ();
+
+   option_panel.being_packed (bp_anchor, bp_width, bp_height);
+   option_panel.pack ();
 
    viewport.index_2d.i = Integer (round (viewport_x));
    viewport.index_2d.j = Integer (round (viewport_y));
@@ -145,11 +147,14 @@ Gwsb::render_count (const RefPtr<Context>& cr,
 
 Gwsb::Gwsb (Gtk::Window* window_ptr,
             const Size_2D& size_2d,
+            const Tokens& station_tokens,
             const Data& data,
             Wind_Disc& wind_disc)
    : Dcanvas (*window_ptr),
      wind_disc (wind_disc),
      window_ptr (window_ptr),
+     station_panel (*this, station_tokens, 0, 6),
+     option_panel (*this),
      data (data),
      viewport (Size_2D (0, 0))
 {
@@ -163,6 +168,9 @@ Gwsb::Gwsb (Gtk::Window* window_ptr,
    // This basically sets the minimum size
    set_size_request (size_2d.i, size_2d.j);
    set_can_focus ();
+
+   register_widget (station_panel);
+   register_widget (option_panel);
 
    set_preferred_size (size_2d.i, size_2d.j);
    being_packed (Point_2D (0, 0), size_2d.i, size_2d.j);
@@ -276,32 +284,91 @@ Gwsb::save (const Dstring& file_path)
 
 }
 
+bool
+Gwsb::on_key_pressed (const Dkey_Event& event)
+{
+
+   if (Dcontainer::on_key_pressed (event)) { return true; }
+
+   switch (event.value)
+   {
+
+      case GDK_KEY_Q:
+      case GDK_KEY_q:
+      {
+         exit (0);
+         //delete window_ptr;
+         //delete this;
+         break;
+      }
+
+   }
+
+   return false;
+
+}
+
+bool
+Gwsb::on_mouse_button_pressed (const Dmouse_Button_Event& event)
+{
+
+   if (Dcontainer::on_mouse_button_pressed (event)) { return true; }
+   const Point_2D& point = event.point;
+
+   return false;
+
+}
+
+bool
+Gwsb::on_mouse_motion (const Dmouse_Motion_Event& event)
+{
+
+   if (Dcontainer::on_mouse_motion (event)) { return true; }
+   const Point_2D& point = event.point;
+
+   return false;
+
+}
+
+bool
+Gwsb::on_mouse_button_released (const Dmouse_Button_Event& event)
+{
+
+   if (Dcontainer::on_mouse_button_released (event)) { return true; }
+   const Point_2D& point = event.point;
+
+   return false;
+
+}
+
 Gwsb_Free::Gwsb_Free (Gtk::Window* window_ptr,
                       const Size_2D& size_2d,
                       const Data& data,
                       Wind_Disc& wind_disc)
-   : Gwsb (window_ptr, size_2d, data, wind_disc),
-     station_panel (*this, 0, 6),
+   : Gwsb (window_ptr,
+           size_2d,
+           data.get_station_tokens (),
+           data,
+           wind_disc),
      month_panel (*this, 0, 6),
      hour_panel (*this, 0, 6),
-     bottom_panel (*this),
      selecting_gradient_wind (false)
 {
 
    const Dtime now;
-   month_panel.set_value ("Mar", false);
-   hour_panel.set_value ("10Z", false);
+   month_panel.set_value (now.get_string ("%b"), false);
+   hour_panel.set_value (now.get_string ("%02dZ"), false);
 
-   register_widget (station_panel);
    register_widget (month_panel);
    register_widget (hour_panel);
-   register_widget (bottom_panel);
 
 }
 
 void
 Gwsb_Free::pack ()
 {
+
+   Gwsb::pack ();
 
    const Real margin = 6;
    const Real title_height = title.get_height ();
@@ -330,36 +397,20 @@ Gwsb_Free::pack ()
    const Real bp_anchor_y = height - bp_height - margin;
    const Point_2D bp_anchor (bp_anchor_x, bp_anchor_y);
 
-   station_panel.being_packed (sp_anchor, sp_width, sp_height);
-   station_panel.pack ();
-
    month_panel.being_packed (mp_anchor, mp_width, mp_height);
    month_panel.pack ();
 
    hour_panel.being_packed (hp_anchor, hp_width, hp_height);
    hour_panel.pack ();
 
-   bottom_panel.being_packed (bp_anchor, bp_width, bp_height);
-   bottom_panel.pack ();
-
-   const Real viewport_width = width - hp_width - mp_width - margin * 4;
-   const Real viewport_height = height - title_height - sp_height - margin * 3;
-   const Real viewport_x = width - viewport_width - margin;
-   const Real viewport_y = height - viewport_height - margin;
-   const Real origin_x = viewport_x + viewport_width / 2;
-   const Real origin_y = viewport_y + viewport_height / 2;
-   const Point_2D origin (origin_x, origin_y);
-
-   viewport.index_2d.i = Integer (round (viewport_x));
-   viewport.index_2d.j = Integer (round (viewport_y));
-   viewport.size_2d.i = Integer (round (viewport_width));
-   viewport.size_2d.j = Integer (round (viewport_height));
-
-   const Real max_radius = std::min (viewport_width, viewport_height) * 0.475;
-   wind_disc.set_position (origin, max_radius);
-
    this->packed = true;
 
+}
+
+const Tokens&
+Gwsb_Free::get_station_tokens () const
+{
+   return data.get_station_tokens ();
 }
 
 const set<Index_2D>&
@@ -368,16 +419,16 @@ Gwsb_Free::get_gradient_wind_index_set () const
    return gradient_wind_index_set;
 }
 
-set<Integer>
-Gwsb_Free::get_month_set () const
+const Selection_Panel::Status&
+Gwsb_Free::get_month_status () const
 {
-   return month_panel.get_value_set ();
+   return month_panel.get_status ();
 }
 
-set<Integer>
-Gwsb_Free::get_hour_set () const
+const Selection_Panel::Status&
+Gwsb_Free::get_hour_status () const
 {
-   return hour_panel.get_value_set ();
+   return hour_panel.get_status ();
 }
 
 bool
@@ -451,46 +502,31 @@ Gwsb_Free::on_key_pressed (const Dkey_Event& event)
 
       case GDK_KEY_Up:
       {
-         decrement_month ();
-         render ();
-         queue_draw ();
-         break;
+         month_panel.decrement ();
+         return true;
       }
 
       case GDK_KEY_Down:
       {
-         increment_month ();
-         render ();
-         queue_draw ();
-         break;
+         month_panel.increment ();
+         return true;
       }
 
       case GDK_KEY_Left:
       {
-         decrement_hour ();
-         render ();
-         queue_draw ();
-         break;
+         hour_panel.decrement ();
+         return true;
       }
 
       case GDK_KEY_Right:
       {
-         increment_hour ();
-         render ();
-         queue_draw ();
-         break;
-      }
-
-      case GDK_KEY_Q:
-      case GDK_KEY_q:
-      {
-         exit (0);
-         //delete window_ptr;
-         //delete this;
-         break;
+         hour_panel.increment ();
+         return true;
       }
 
    }
+
+   return Gwsb::on_key_pressed (event);
 
 }
 
@@ -498,7 +534,6 @@ bool
 Gwsb_Free::on_mouse_button_pressed (const Dmouse_Button_Event& event)
 {
 
-   if (Dcontainer::on_mouse_button_pressed (event)) { return true; }
    const Point_2D& point = event.point;
 
    switch (event.button)
@@ -537,7 +572,7 @@ Gwsb_Free::on_mouse_button_pressed (const Dmouse_Button_Event& event)
 
    }
 
-   return false;
+   return Gwsb::on_mouse_button_pressed (event);
 
 }
 
@@ -545,7 +580,6 @@ bool
 Gwsb_Free::on_mouse_motion (const Dmouse_Motion_Event& event)
 {
 
-   if (Dcontainer::on_mouse_motion (event)) { return true; }
    const Point_2D& point = event.point;
 
    if (selecting_gradient_wind)
@@ -568,7 +602,7 @@ Gwsb_Free::on_mouse_motion (const Dmouse_Motion_Event& event)
 
    }
 
-   return false;
+   return Gwsb::on_mouse_motion (event);
 
 }
 
@@ -619,46 +653,6 @@ Gwsb_Free::on_mouse_button_released (const Dmouse_Button_Event& event)
 }
 
 void
-Gwsb_Free::increment_month ()
-{
-   set<Integer> month_set = month_panel.get_value_set ();
-   if (month_set.size () == 0) { return; }
-   const Integer last_month = *(month_set.rbegin ());
-   const Integer month = ((last_month) % 12) + 1;
-   month_panel.set_value (month);
-}
-
-void
-Gwsb_Free::decrement_month ()
-{
-   set<Integer> month_set = month_panel.get_value_set ();
-   if (month_set.size () == 0) { return; }
-   const Integer first_month = *(month_set.begin ());
-   const Integer month = ((first_month + 10) % 12) + 1;
-   month_panel.set_value (month);
-}
-
-void
-Gwsb_Free::increment_hour ()
-{
-   set<Integer> hour_set = hour_panel.get_value_set ();
-   if (hour_set.size () == 0) { return; }
-   const Integer last_hour = *(hour_set.rbegin ());
-   const Integer hour = (last_hour + 1) % 24;
-   hour_panel.set_value (hour);
-}
-
-void
-Gwsb_Free::decrement_hour ()
-{
-   set<Integer> hour_set = hour_panel.get_value_set ();
-   if (hour_set.size () == 0) { return; }
-   const Integer first_hour = *(hour_set.begin ());
-   const Integer hour = (first_hour + 23) % 24;
-   hour_panel.set_value (hour);
-}
-
-void
 Gwsb_Free::render (const RefPtr<Context>& cr,
                    const Wind_Disc& wind_disc,
                    const Record::Set& record_set,
@@ -686,14 +680,13 @@ void
 Gwsb_Free::render ()
 {
 
-
    if (!packed) { pack (); }
 
    const Dstring& station = station_panel.get_station ();
    const Dstring& month_string = month_panel.get_string ();
    const Dstring& hour_string = hour_panel.get_string ();
-   const bool outline = (bottom_panel.with_outline ());
-   const Real with_noise = bottom_panel.with_noise ();
+   const bool outline = (option_panel.with_outline ());
+   const Real with_noise = option_panel.with_noise ();
 
    title.set (month_string, station, hour_string);
    set_foreground_ready (false);
@@ -710,6 +703,7 @@ Gwsb_Free::render ()
    Dcanvas::cairo (cr);
 
    delete record_set_ptr;
+
 }
 
 void
@@ -727,4 +721,234 @@ Gwsb_Free::render_refresh ()
    queue_draw ();
 
 }
+
+Gwsb_Sequence::Gwsb_Sequence (Gtk::Window* window_ptr,
+                              const Size_2D& size_2d,
+                              const Nwp_Gw::Sequence::Map& sequence_map,
+                              const Data& data,
+                              Wind_Disc& wind_disc)
+   : Gwsb (window_ptr,
+           size_2d,
+           sequence_map.get_station_tokens (),
+           data,
+           wind_disc),
+     sequence_map (sequence_map),
+     time_chooser (*this, 12),
+     gradient_wind_threshold (7)
+{
+
+   time_chooser.get_signal ().connect (sigc::mem_fun (
+      *this, &Gwsb::render_queue_draw));
+
+   register_widget (time_chooser);
+
+}
+
+void
+Gwsb_Sequence::pack ()
+{
+
+   Gwsb::pack ();
+
+   const Real margin = 6;
+   const Real title_height = title.get_height ();
+
+   const Real sp_anchor_x = margin;
+   const Real sp_anchor_y = title_height + margin; 
+   const Real sp_width = width - 2 * margin;
+   const Real sp_height = 60;
+   const Point_2D sp_anchor (sp_anchor_x, sp_anchor_y);
+
+   const Real tc_anchor_x = margin; 
+   const Real tc_anchor_y = sp_anchor_y + sp_height + margin; 
+   const Real tc_width = 60 + margin + 60;
+   const Real tc_height = height - tc_anchor_y - margin;
+   const Point_2D tc_anchor (tc_anchor_x, tc_anchor_y);
+
+   const Real bp_width = 200;
+   const Real bp_height = 20;
+   const Real bp_anchor_x = width - bp_width - margin;
+   const Real bp_anchor_y = height - bp_height - margin;
+   const Point_2D bp_anchor (bp_anchor_x, bp_anchor_y);
+
+   time_chooser.being_packed (tc_anchor, tc_width, tc_height);
+   time_chooser.pack ();
+
+   this->packed = true;
+
+}
+
+const Tokens&
+Gwsb_Sequence::get_station_tokens () const
+{
+   return sequence_map.get_station_tokens ();
+}
+
+bool
+Gwsb_Sequence::on_key_pressed (const Dkey_Event& event)
+{
+
+   switch (event.value)
+   {
+
+      case GDK_KEY_Left:
+      {
+         time_chooser.step_backward ();
+         return true;
+      }
+
+      case GDK_KEY_Right:
+      {
+         time_chooser.step_forward ();
+         return true;
+      }
+
+   }
+
+   return Gwsb::on_key_pressed (event);
+}
+
+bool
+Gwsb_Sequence::on_mouse_button_pressed (const Dmouse_Button_Event& event)
+{
+   return Gwsb::on_mouse_button_pressed (event);
+}
+
+bool
+Gwsb_Sequence::on_mouse_motion (const Dmouse_Motion_Event& event)
+{
+   return Gwsb::on_mouse_motion (event);
+}
+
+bool
+Gwsb_Sequence::on_mouse_button_released (const Dmouse_Button_Event& event)
+{
+   return Gwsb::on_mouse_button_released (event);
+}
+
+bool
+Gwsb_Sequence::on_mouse_scroll (const Dmouse_Scroll_Event& event)
+{
+
+   const Point_2D point (event.point.x - anchor.x, event.point.y - anchor.y);
+   if (out_of_bounds (point)) { return false; }
+
+   switch (event.direction)
+   {
+
+      case GDK_SCROLL_UP:
+      {
+         gradient_wind_threshold *= 1.02;
+         render_queue_draw ();
+         break;
+      }
+
+      case GDK_SCROLL_DOWN:
+      {
+         gradient_wind_threshold /= 1.02;
+         render_queue_draw ();
+         break;
+      }
+
+   }
+
+   return Gwsb::on_mouse_scroll (event);
+
+}
+
+void
+Gwsb_Sequence::render (const RefPtr<Context>& cr,
+                       const Wind_Disc& wind_disc,
+                       const Record::Set& record_set,
+                       const Box_2D& viewport,
+                       const bool outline,
+                       const bool with_noise)
+{
+
+   wind_disc.render_bg (cr);
+
+   const Real dir_noise = (with_noise ? 5 : 0);
+   record_set.render_scatter_plot (cr, wind_disc, dir_noise);
+
+   const Real hue = 0.33;
+   if (outline) { wind_disc.render_percentage_d (cr, hue); }
+   render_count (cr, record_set.size (), viewport);
+
+   wind_disc.render_percentages (cr);
+
+}
+
+void
+Gwsb_Sequence::render ()
+{
+
+   if (!packed) { pack (); }
+
+   const Dstring& station = station_panel.get_station ();
+   const bool outline = (option_panel.with_outline ());
+   const Real with_noise = option_panel.with_noise ();
+
+   const Nwp_Gw::Sequence& sequence = sequence_map.at (station);
+
+   const set<Dtime>& time_set = sequence.get_time_set ();
+   const Time_Chooser::Shape time_chooser_shape (time_set);
+   time_chooser.set_shape (time_chooser_shape);
+
+   const Dtime& dtime = time_chooser.get_time ();
+   const Nwp_Gw& nwp_gw = sequence.at (dtime);
+
+   const Dstring& month_str = dtime.get_string ("%b");
+   const Dstring& hour_str = dtime.get_string ("%HZ");
+   const Dstring& date_str = dtime.get_string ("%Y.%m.%d (%a)");
+   const Dstring& time_str = dtime.get_string ("%H:%M UTC");
+
+   title.set (station);
+   title.set (date_str, station, time_str);
+   set_foreground_ready (false);
+
+   wind_disc.clear ();
+   Station_Data& station_data = data.get_station_data (station);
+   const Record::Set* record_set_ptr = station_data.get_record_set_ptr (
+      month_str, hour_str, nwp_gw, gradient_wind_threshold);
+
+   const RefPtr<Context> cr = Context::create (image_surface);
+   render_bg (cr, width, height, viewport);
+   render (cr, wind_disc, *record_set_ptr, viewport, outline, with_noise);
+
+   // render nwp_gw
+   {
+
+      const Wind_Disc::Transform& t = wind_disc.get_transform ();
+
+      const Real direction = nwp_gw.get_direction ();
+      const Real speed = nwp_gw.get_speed ();
+      const Real scatter_ring_size = t.get_length (gradient_wind_threshold);
+      const Ring ring (scatter_ring_size);
+
+      const Color color_bg = Color::hsb (0.0, 0.0, 0.0, 0.0);
+      const Color color_fg = Color::hsb (0.0, 0.0, 0.0, 0.3);
+      const Point_2D p = t.transform (Point_2D (direction, speed));
+
+      cr->save ();
+      cr->set_line_width (4);
+      ring.cairo (cr, p);
+      color_bg.cairo (cr);
+      cr->fill_preserve ();
+      color_fg.cairo (cr);
+      cr->stroke ();
+      cr->restore ();
+
+   }
+
+   Dcanvas::cairo (cr);
+
+   delete record_set_ptr;
+
+}
+
+void
+Gwsb_Sequence::render_refresh ()
+{
+}
+
 

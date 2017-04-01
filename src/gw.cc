@@ -16,7 +16,7 @@ Nwp_Gw::Nwp_Gw (const Dstring& station,
 }
 
 Dtime
-Nwp_Gw::get_dtime () const
+Nwp_Gw::get_time () const
 {
    return Dtime (base_time.t + forecast_hour);
 }
@@ -24,107 +24,47 @@ Nwp_Gw::get_dtime () const
 bool
 Nwp_Gw::operator == (const Nwp_Gw& nwp_gw) const
 {
-   return (get_dtime () == nwp_gw.get_dtime ());
+   return (get_time () == nwp_gw.get_time ());
 }
 
 bool
 Nwp_Gw::operator > (const Nwp_Gw& nwp_gw) const
 {
-   return (get_dtime () > nwp_gw.get_dtime ());
+   return (get_time () > nwp_gw.get_time ());
 }
 
 bool
 Nwp_Gw::operator < (const Nwp_Gw& nwp_gw) const
 {
-   return (get_dtime () < nwp_gw.get_dtime ());
+   return (get_time () < nwp_gw.get_time ());
 }
 
-vector<Dtime>
-Nwp_Gw::Sequence::get_time_vector () const
+const set<Dtime>&
+Nwp_Gw::Sequence::get_time_set () const
 {
-
-   vector<Dtime> time_vector;
-
-   for (const Nwp_Gw& nwp_gw : *this)
-   {
-      const Dtime& dtime = nwp_gw.get_dtime ();
-      time_vector.push_back (dtime);
-   }
-
-   return time_vector;
-
+   return time_set;
 }
 
 void
-Nwp_Gw::Sequence::run (Data& data,
-                       const Size_2D& size_2d,
-                       const Wind_Disc& wind_disc) const
+Nwp_Gw::Sequence::ingest (const Nwp_Gw& nwp_gw)
 {
-
-   const bool outline = false;
-   const bool with_noise = true;
-   const Real gradient_wind_threshold = 5;
-
-   for (const Nwp_Gw& nwp_gw : *this)
-   {
-
-      const Dstring& station = nwp_gw.station;
-      const Dtime& base_time = nwp_gw.base_time;
-      const Real forecast_hour = nwp_gw.forecast_hour;
-      const Dtime dtime (base_time.t + forecast_hour);
-      const Integer month = dtime.get_month ();
-      const Integer hour = dtime.get_hour ();
-
-      set<Integer> month_set, hour_set;
-      month_set.insert (month);
-      hour_set.insert (hour);
-
-      const Record::Set* record_set_ptr =
-         data.get_station_data (station).get_record_set_ptr (
-            month_set, hour_set, nwp_gw, gradient_wind_threshold);
-
-      const Dstring png_file_path (station + "_" + dtime.get_string () + ".png");
-
-      RefPtr<Surface> surface = denise::get_surface (
-         size_2d, "png", png_file_path);
-      RefPtr<Context> cr = denise::get_cr (surface);
-
-      Color::white ().cairo (cr);
-      cr->paint ();
-
-      wind_disc.render_bg (cr);
-      record_set_ptr->render_scatter_plot (cr, wind_disc, 5);
-
-      //const Box_2D viewport (Index_2D (10, 50), Size_2D (980, 740));
-      //Gwsb::render (cr, wind_disc, *record_set_ptr,
-      //   gradient_wind_index_set, viewport, outline, with_noise);
-
-      delete record_set_ptr;
-
-      surface->write_to_png (png_file_path);
-
-   }
-
+   const Dtime& dtime = nwp_gw.get_time ();
+   time_set.insert (dtime);
+   map<Dtime, Nwp_Gw>::insert (make_pair (dtime, nwp_gw));
 }
 
 Nwp_Gw::Sequence::Map::Map (const Dstring& dir_path)
 {
-
-   const Reg_Exp re ("[A-Z]...*.gw");
+   const Reg_Exp re ("^[A-Za-z].*.gws$");
    const Tokens& dir_listing = get_dir_listing (dir_path, re, true);
-
-   for (const Dstring& file_path : dir_listing)
-   {
-      cout << file_path << endl;
-   }
-
+   for (const Dstring& file_path : dir_listing) { ingest (file_path); }
 }
 
 void
 Nwp_Gw::Sequence::Map::ingest (const Dstring& sequence_file_path)
 {
 
-   Dstring station;
+   Dstring this_station, station;
    Nwp_Gw::Sequence sequence;
    igzstream file (sequence_file_path.get_string ());
 
@@ -145,14 +85,25 @@ Nwp_Gw::Sequence::Map::ingest (const Dstring& sequence_file_path)
       station = tokens[2];
       const Wind gw (stof (tokens[3]), stof (tokens[4]));
 
-      sequence.insert (Nwp_Gw (station, base_time, forecast_hour, gw));
+      if (station != this_station)
+      {
+         station_tokens.push_back (station);
+         insert (make_pair (station, sequence));
+         this_station = station;
+      }
+  
+      at (station).ingest (Nwp_Gw (station, base_time, forecast_hour, gw));
 
    }
 
    file.close ();
 
-   keys.push_back (station);
-   insert (make_pair (station, sequence));
-
 }
+
+const Tokens&
+Nwp_Gw::Sequence::Map::get_station_tokens () const
+{
+   return station_tokens;
+}
+
 

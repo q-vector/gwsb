@@ -36,7 +36,7 @@ namespace gwsb
                  const Wind& wind);
 
          Dtime
-         get_dtime () const;
+         get_time () const;
 
          bool
          operator == (const Nwp_Gw& nwp_gw) const;
@@ -51,40 +51,41 @@ namespace gwsb
          render (const RefPtr<Context>& cr,
                  const Wind_Disc& wind_disc) const;
 
-         class Sequence : public set<Nwp_Gw>
+         class Sequence : public map<Dtime, Nwp_Gw>
          {
+
+            private:
+
+               set<Dtime>
+               time_set;
 
             public:
 
-               vector<Dtime>
-               get_time_vector () const;
+               const set<Dtime>&
+               get_time_set () const;
 
                void
-               run (Data& data,
-                    const Size_2D& size_2d,
-                    const Wind_Disc& wind_disc) const;
+               ingest (const Nwp_Gw& nwp_gw);
 
-            class Map : public map <Dstring, Sequence>
-            {
+               class Map : public map <Dstring, Sequence>
+               {
 
-               private:
+                  private:
 
-                  Tokens
-                  keys;
+                     Tokens
+                     station_tokens;
 
-               public:
+                  public:
 
-                  Map (const Dstring& dir_path);
+                     Map (const Dstring& dir_path);
 
-                  void
-                  ingest (const Dstring& sequence_file_path);
+                     void
+                     ingest (const Dstring& sequence_file_path);
 
-                  void
-                  run (Data& data,
-                       const Size_2D& size_2d,
-                       const Wind_Disc& wind_disc) const;
+                     const Tokens&
+                     get_station_tokens () const;
 
-            };
+               };
 
          };
 

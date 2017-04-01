@@ -97,25 +97,26 @@ Record::Monthly::Monthly ()
    const Record::Set hourly;
    for (Integer hour = 0; hour <= 24; hour++)
    {
-      insert (make_pair (hour, hourly));
+      const Dstring& hour_str = Dstring::render ("%02dZ", hour);
+      insert (make_pair (hour_str, hourly));
    }
 }
 
 void
-Record::Monthly::add (const Integer hour,
+Record::Monthly::add (const Dstring& hour_str,
                       const Record& record)
 {
-   Record::Set& hourly = at (hour);
+   Record::Set& hourly = at (hour_str);
    hourly.insert (record);
 }
 
 void
-Station_Data::add (const Integer month,
-                   const Integer hour,
+Station_Data::add (const Dstring& month_str,
+                   const Dstring& hour_str,
                    const Record& record)
 {
-   Record::Monthly& monthly= at (month);
-   monthly.add (hour, record);
+   Record::Monthly& monthly = at (month_str);
+   monthly.add (hour_str, record);
 }
 
 bool
@@ -139,10 +140,18 @@ Station_Data::match_gradient_wind (const Wind_Disc& wind_disc,
 Station_Data::Station_Data ()
 {
    const Record::Monthly monthly;
-   for (Integer month = 1; month <= 12; month++)
-   {
-      insert (make_pair (month, monthly));
-   }
+   insert (make_pair ("Jan", monthly));
+   insert (make_pair ("Feb", monthly));
+   insert (make_pair ("Mar", monthly));
+   insert (make_pair ("Apr", monthly));
+   insert (make_pair ("May", monthly));
+   insert (make_pair ("Jun", monthly));
+   insert (make_pair ("Jul", monthly));
+   insert (make_pair ("Aug", monthly));
+   insert (make_pair ("Sep", monthly));
+   insert (make_pair ("Oct", monthly));
+   insert (make_pair ("Nov", monthly));
+   insert (make_pair ("Dec", monthly));
 }
 
 void
@@ -168,11 +177,11 @@ Station_Data::read (const Dstring& file_path)
       const Wind& gwind = Wind::direction_speed (gw_direction, gw_speed);
       const Wind& wind = Wind::direction_speed (direction, speed);
 
-      const Integer month = dtime.get_month ();
-      const Integer hour = dtime.get_hour ();
+      const Dstring& month_str = dtime.get_string ("%b");
+      const Dstring& hour_str = dtime.get_string ("%HZ");
       const Record record (dtime, gwind, gradient_temperature, wind);
 
-      add (month, hour, record);
+      add (month_str, hour_str, record);
 
    }
 
@@ -185,18 +194,20 @@ Station_Data::feed (Wind_Rose& wind_rose,
                     const Gwsb_Free& gwsb_free) const
 {
 
-   const set<Integer>& month_set = gwsb_free.get_month_set ();
-   const set<Integer>& hour_set = gwsb_free.get_hour_set ();
+   const Selection_Panel::Status& month_status = gwsb_free.get_month_status ();
+   const Selection_Panel::Status& hour_status = gwsb_free.get_hour_status ();
 
-   for (const Integer& month : month_set)
+   for (auto& m : month_status)
    {
 
-      const Record::Monthly& monthly = at (month);
+      if (!m.second) { continue; }
+      const Record::Monthly& monthly = at (m.first);
 
-      for (const Integer& hour : hour_set)
+      for (auto& h : hour_status)
       {
 
-         const Record::Set& hourly = monthly.at (hour);
+         if (!h.second) { continue; }
+         const Record::Set& hourly = monthly.at (h.first);
 
          for (const Record& record : hourly)
          {
@@ -222,18 +233,20 @@ Station_Data::get_record_set_ptr (const Gwsb_Free& gwsb_free) const
 
    Record::Set* record_set_ptr = new Record::Set ();
 
-   const set<Integer>& month_set = gwsb_free.get_month_set ();
-   const set<Integer>& hour_set = gwsb_free.get_hour_set ();
+   const Selection_Panel::Status& month_status = gwsb_free.get_month_status ();
+   const Selection_Panel::Status& hour_status = gwsb_free.get_hour_status ();
 
-   for (const Integer& month : month_set)
+   for (auto& m : month_status)
    {
 
-      const Record::Monthly& monthly = at (month);
+      if (!m.second) { continue; }
+      const Record::Monthly& monthly = at (m.first);
 
-      for (const Integer& hour : hour_set)
+      for (auto& h : hour_status)
       {
 
-         const Record::Set& hourly = monthly.at (hour);
+         if (!h.second) { continue; }
+         const Record::Set& hourly = monthly.at (h.first);
 
          for (const Record& record : hourly)
          {
@@ -256,23 +269,25 @@ Station_Data::get_record_set_ptr (const Gwsb_Free& gwsb_free) const
 }
 
 Record::Set*
-Station_Data::get_record_set_ptr (const set<Integer>& month_set,
-                                  const set<Integer>& hour_set,
+Station_Data::get_record_set_ptr (const Selection_Panel::Status& month_status,
+                                  const Selection_Panel::Status& hour_status,
                                   const Wind_Disc& wind_disc,
                                   const set<Index_2D>& gradient_wind_index_set) const
 {
 
    Record::Set* record_set_ptr = new Record::Set ();
 
-   for (const Integer& month : month_set)
+   for (auto& m : month_status)
    {
 
-      const Record::Monthly& monthly = at (month);
+      if (!m.second) { continue; }
+      const Record::Monthly& monthly = at (m.first);
 
-      for (const Integer& hour : hour_set)
+      for (auto& h : hour_status)
       {
 
-         const Record::Set& hourly = monthly.at (hour);
+         if (!h.second) { continue; }
+         const Record::Set& hourly = monthly.at (h.first);
 
          for (const Record& record : hourly)
          {
@@ -291,23 +306,25 @@ Station_Data::get_record_set_ptr (const set<Integer>& month_set,
 }
 
 Record::Set*
-Station_Data::get_record_set_ptr (const set<Integer>& month_set,
-                                  const set<Integer>& hour_set,
+Station_Data::get_record_set_ptr (const Selection_Panel::Status& month_status,
+                                  const Selection_Panel::Status& hour_status,
                                   const Wind& gradient_wind,
                                   const Real threshold) const
 {
 
    Record::Set* record_set_ptr = new Record::Set ();
 
-   for (const Integer& month : month_set)
+   for (auto& m : month_status)
    {
 
-      const Record::Monthly& monthly = at (month);
+      if (!m.second) { continue; }
+      const Record::Monthly& monthly = at (m.first);
 
-      for (const Integer& hour : hour_set)
+      for (auto& h : hour_status)
       {
 
-         const Record::Set& hourly = monthly.at (hour);
+         if (!h.second) { continue; }
+         const Record::Set& hourly = monthly.at (h.first);
 
          for (const Record& record : hourly)
          {
@@ -325,6 +342,32 @@ Station_Data::get_record_set_ptr (const set<Integer>& month_set,
    return record_set_ptr;
 
 }
+
+Record::Set*
+Station_Data::get_record_set_ptr (const Dstring& month_str,
+                                  const Dstring& hour_str,
+                                  const Wind& gradient_wind,
+                                  const Real threshold) const
+{
+
+   Record::Set* record_set_ptr = new Record::Set ();
+
+   const Record::Monthly& monthly = at (month_str);
+   const Record::Set& hourly = monthly.at (hour_str);
+
+   for (const Record& record : hourly)
+   {
+      const Wind& difference = gradient_wind - record.gradient_wind;
+      const bool match = gradient_wind.is_naw () ||
+                         gsl_isnan (threshold) ||
+                         (difference.get_speed () < threshold);
+      if (match) { record_set_ptr->insert (record); }
+   }
+
+   return record_set_ptr;
+
+}
+
 
 void
 Data::survey ()
@@ -363,7 +406,10 @@ Data::get_station_data (const Dstring& station)
    Data::iterator iterator = find (station);
    const bool has_station_data = (iterator != end ());
 
-   if (has_station_data) { return iterator->second; }
+   if (has_station_data)
+   {
+      return iterator->second;
+   }
    else
    {
 

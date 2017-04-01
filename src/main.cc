@@ -131,15 +131,30 @@ main (int argc,
       if (sequence_dir_path != "")
       {
 
-         const Nwp_Gw::Sequence::Map gwsm (sequence_dir_path);
-         //const Nwp_Gw::Sequence sequence (sequence_file_path);
-         //sequence.run (data, size_2d, wind_disc);
+         const Nwp_Gw::Sequence::Map sequence_map (sequence_dir_path);
+
+         Gtk::Main gtk_main (argc, argv);
+
+         Gtk::Window* window_ptr = new Gtk::Window ();
+         Gtk::Window& window = *window_ptr;
+         window.set_resizable (false);
+         window.resize (size_2d.i, size_2d.j);
+         window.set_title ("gwsb");
+
+         Gwsb_Sequence gwsb_sequence (window_ptr, size_2d,
+            sequence_map, data, wind_disc);
+
+         window.add (gwsb_sequence);
+         gwsb_sequence.show ();
+
+         Gtk::Main::run (window);
 
       }
       else
       if (command_line)
       {
 
+/*
          const bool outline = false;
          const bool with_noise = true;
 
@@ -172,6 +187,7 @@ main (int argc,
          delete record_set_ptr;
 
          surface->write_to_png ("./gwsb.png");
+*/
 
       }
       else

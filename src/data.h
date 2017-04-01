@@ -6,6 +6,7 @@
 #include <denise/gtkmm.h>
 #include <denise/met.h>
 #include <denise/stat.h>
+#include "selection.h"
 
 using namespace std;
 
@@ -61,7 +62,7 @@ namespace gwsb
 
          };
 
-         class Monthly : public map<Integer, Record::Set>
+         class Monthly : public map<Dstring, Record::Set>
          {
 
             public:
@@ -69,21 +70,21 @@ namespace gwsb
                Monthly ();
 
                void
-               add (const Integer hour,
+               add (const Dstring& hour_str,
                     const Record& record);
 
          };
 
    };
 
-   class Station_Data : public map<Integer, Record::Monthly>
+   class Station_Data : public map<Dstring, Record::Monthly>
    {
 
       private:
 
          void
-         add (const Integer month,
-              const Integer hour,
+         add (const Dstring& month_str,
+              const Dstring& hour_str,
               const Record& record);
 
          bool
@@ -106,14 +107,20 @@ namespace gwsb
          get_record_set_ptr (const Gwsb_Free& gwsb_free) const;
 
          Record::Set*
-         get_record_set_ptr (const set<Integer>& month_set,
-                             const set<Integer>& hour_set,
+         get_record_set_ptr (const Selection_Panel::Status& month_status,
+                             const Selection_Panel::Status& hour_status,
                              const Wind_Disc& wind_disc,
                              const set<Index_2D>& gradient_wind_index_set) const;
 
          Record::Set*
-         get_record_set_ptr (const set<Integer>& month_set,
-                             const set<Integer>& hour_set,
+         get_record_set_ptr (const Selection_Panel::Status& month_status,
+                             const Selection_Panel::Status& hour_status,
+                             const Wind& gradient_wind,
+                             const Real threshold = 2.5) const;
+
+         Record::Set*
+         get_record_set_ptr (const Dstring& month_str,
+                             const Dstring& hour_str,
                              const Wind& gradient_wind,
                              const Real threshold = 2.5) const;
 

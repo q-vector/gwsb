@@ -4,7 +4,6 @@
 #include <iostream>
 #include <denise/gtkmm.h>
 #include <denise/met.h>
-#include "data.h"
 
 namespace gwsb
 {
@@ -24,17 +23,31 @@ namespace gwsb
 
             public:
 
+               const Tokens
+               tokens;
+
                Month_Map ();
+
+               const Tokens&
+               get_tokens () const;
 
                Integer
                get_integer (const Dstring& str) const;
 
          };
 
+      public:
+
          class Status : public map<Dstring, bool>
          {
 
             public:
+
+               void
+               set_all (const bool on);
+
+               void
+               set (const Tokens& tokens);
 
                Integer
                number_on () const;
@@ -52,6 +65,8 @@ namespace gwsb
                first () const;
 
          };
+
+      protected:
 
          Month_Map
          month_map;
@@ -85,6 +100,9 @@ namespace gwsb
 
          ~Selection_Panel ();
 
+         const Status&
+         get_status () const;
+
          void
          handle (const Dstring& str,
                  const Devent& event);
@@ -96,11 +114,11 @@ namespace gwsb
          void
          toggle (const Dstring& str);
 
-         void
-         increment ();
+         virtual void
+         increment () = 0;
 
-         void
-         decrement ();
+         virtual void
+         decrement () = 0;
 
    };
 
@@ -116,6 +134,12 @@ namespace gwsb
          string
          get_string () const;
 
+         void
+         increment ();
+
+         void
+         decrement ();
+
    };
 
    class Hour_Panel : public Selection_Panel
@@ -129,6 +153,12 @@ namespace gwsb
 
          string
          get_string () const;
+
+         void
+         increment ();
+
+         void
+         decrement ();
 
    };
 
@@ -152,6 +182,7 @@ namespace gwsb
       public:
 
          Station_Panel (Gwsb& gwsb,
+                        const Tokens& station_tokens,
                         const Real margin,
                         const Real spacing);
 

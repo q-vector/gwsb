@@ -7,19 +7,20 @@ using namespace denise;
 using namespace gwsb;
 
 Selection_Panel::Month_Map::Month_Map ()
+   : tokens ("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec")
 {
-   insert (make_pair ("Jan", 1));
-   insert (make_pair ("Feb", 2));
-   insert (make_pair ("Mar", 3));
-   insert (make_pair ("Apr", 4));
-   insert (make_pair ("May", 5));
-   insert (make_pair ("Jun", 6));
-   insert (make_pair ("Jul", 7));
-   insert (make_pair ("Aug", 8));
-   insert (make_pair ("Sep", 9));
-   insert (make_pair ("Oct", 10));
-   insert (make_pair ("Nov", 11));
-   insert (make_pair ("Dec", 12));
+   insert (make_pair ("Jan", 0));
+   insert (make_pair ("Feb", 1));
+   insert (make_pair ("Mar", 2));
+   insert (make_pair ("Apr", 3));
+   insert (make_pair ("May", 4));
+   insert (make_pair ("Jun", 5));
+   insert (make_pair ("Jul", 6));
+   insert (make_pair ("Aug", 7));
+   insert (make_pair ("Sep", 8));
+   insert (make_pair ("Oct", 9));
+   insert (make_pair ("Nov", 10));
+   insert (make_pair ("Dec", 11));
 }
 
 Integer
@@ -30,12 +31,30 @@ Selection_Panel::Month_Map::get_integer (const Dstring& str) const
    return -1;
 }
 
+
+
 Integer
 Selection_Panel::Status::number_on () const
 {
    Integer n;
    for (auto& i : *this) { if (i.second) { n++; } }
    return n;
+}
+
+void
+Selection_Panel::Status::set_all (const bool on)
+{
+   for (auto& i : *this) { i.second = on; }
+}
+
+void
+Selection_Panel::Status::set (const Tokens& tokens)
+{
+   set_all (false);
+   for (const Dstring& str : tokens)
+   {
+      try { at (str) = true; } catch (std::out_of_range soer) { } 
+   }
 }
 
 bool
@@ -84,6 +103,12 @@ Selection_Panel::Selection_Panel (Gwsb_Free& gwsb_free,
 Selection_Panel::~Selection_Panel ()
 {
    for (auto& i : button_ptr_map) { delete i.second; }
+}
+
+const Selection_Panel::Status&
+Selection_Panel::get_status () const
+{
+   return status;
 }
 
 void
@@ -136,34 +161,14 @@ Selection_Panel::toggle (const Dstring& str)
 
 }
 
-void
-Selection_Panel::increment ()
-{
-   if (status.zero_on ()) { return; }
-   auto iterator = (month_map.find (status.last ()))++;
-   if (iterator == month_map.end ()) { iterator = month_map.begin (); }
-   set_value (iterator->first);
-}
-
-void
-Selection_Panel::decrement ()
-{
-   if (status.zero_on ()) { return; }
-   auto iterator = month_map.find (status.first ());
-   if (iterator == month_map.begin ()) { iterator = month_map.end (); }
-   iterator--;
-   set_value (iterator->first);
-}
-
 Month_Panel::Month_Panel (Gwsb_Free& gwsb_free,
                           const Real margin,
                           const Real spacing)
    : Selection_Panel (gwsb_free, margin, spacing)
 {
 
-   for (auto& i : month_map)
+   for (const Dstring& str : month_map.tokens)
    {
-      const Dstring& str = i.first;
       Dbutton* button_ptr = new Dbutton (gwsb_free, str, 12);
       button_ptr->get_full_str_signal ().connect (sigc::mem_fun (
          *this, &Selection_Panel::handle));
@@ -173,9 +178,9 @@ Month_Panel::Month_Panel (Gwsb_Free& gwsb_free,
    }
 
    decrement_button.get_signal ().connect (sigc::mem_fun (
-      gwsb_free, &Gwsb_Free::decrement_month));
+      *this, &Month_Panel::decrement));
    increment_button.get_signal ().connect (sigc::mem_fun (
-      gwsb_free, &Gwsb_Free::increment_month));
+      *this, &Month_Panel::increment));
 
 }
 
@@ -194,21 +199,24 @@ Month_Panel::get_string () const
 
    return s.substr (1);
 
-/*
-   const set<Integer>& month_set = get_value_set ();
+}
 
-   if (month_set.size () == 1)
-   {
-      const Integer month = *(month_set.begin ());
-      const string& month_string = string_map.find (month)->second;
-      return month_string;
-   }
-   else
-   {
-      return "Multiple Months";
-   }
-*/
+void
+Month_Panel::increment ()
+{
+   if (status.zero_on ()) { return; }
+   const Integer m = month_map[status.last ()];
+   const Dstring& next_month = month_map.tokens[(m + 1) % 12];
+   set_value (next_month);
+}
 
+void
+Month_Panel::decrement ()
+{
+   if (status.zero_on ()) { return; }
+   const Integer m = month_map[status.first ()];
+   const Dstring& prev_month = month_map.tokens[(m - 1 + 12) % 12];
+   set_value (prev_month);
 }
 
 Hour_Panel::Hour_Panel (Gwsb_Free& gwsb_free,
@@ -229,9 +237,9 @@ Hour_Panel::Hour_Panel (Gwsb_Free& gwsb_free,
    }
 
    decrement_button.get_signal ().connect (sigc::mem_fun (
-      gwsb_free, &Gwsb_Free::decrement_hour));
+      *this, &Hour_Panel::decrement));
    increment_button.get_signal ().connect (sigc::mem_fun (
-      gwsb_free, &Gwsb_Free::increment_hour));
+      *this, &Hour_Panel::increment));
 
 }
 
@@ -250,35 +258,33 @@ Hour_Panel::get_string () const
 
    return s.substr (1);
 
-/*
-   const set<Integer>& hour_set = get_value_set ();
+}
 
-   if (hour_set.size () == 1)
-   {
-      const Integer hour = *(hour_set.begin ());
-      const Dstring& hour_string = Dstring::render ("%02dZ", hour);
-      return hour_string;
-   }
-   else
-   {
-      return "Multiple Hours";
-   }
-*/
+void
+Hour_Panel::increment ()
+{
+   if (status.zero_on ()) { return; }
+   Integer h = (stoi (status.last ()) + 1) % 24;
+   set_value (Dstring::render ("%02dZ", h));
 
 }
 
+void
+Hour_Panel::decrement ()
+{
+   if (status.zero_on ()) { return; }
+   Integer h = (stoi (status.first ()) - 1 + 24) % 24;
+   set_value (Dstring::render ("%02dZ", h));
+}
+
 Station_Panel::Station_Panel (Gwsb& gwsb,
+                              const Tokens& station_tokens,
                               const Real margin,
                               const Real spacing)
    : Dgrid_Box (gwsb, margin, spacing),
      gwsb (gwsb),
      led_color (1, 0, 0)
 {
-
-   const Data& data = gwsb.get_data ();
-   const Tokens& station_tokens = data.get_station_tokens ();
-
-   station = station_tokens.front ();
 
    Integer id = 0;
    const Integer n = 9;
@@ -295,6 +301,8 @@ Station_Panel::Station_Panel (Gwsb& gwsb,
       id++;
    }
 
+   this->station = station_tokens.front ();
+
 }
 
 Station_Panel::~Station_Panel ()
@@ -306,8 +314,8 @@ void
 Station_Panel::set_station (const string& station)
 {
    this->station = station;
-   gwsb.render ();
-   gwsb.queue_draw ();
+   gwsb.render_queue_draw ();
+   //gwsb.queue_draw ();
 }
 
 const string&
