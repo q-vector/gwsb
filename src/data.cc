@@ -49,6 +49,20 @@ Record::Set::get_gradient_temperature_sample_ptr () const
 }
 
 void
+Record::Set::sieve_by_gradient_wind (set<Record>& record_set,
+                                     const Wind& gradient_wind,
+                                     const Real threshold) const
+{
+   for (const Record& record : *this)
+   {
+      const Wind& difference = gradient_wind - record.gradient_wind;
+      const bool match = gradient_wind.is_naw () || gsl_isnan (threshold) ||
+                         (difference.get_speed () < threshold);
+      if (match) { record_set.insert (record); }
+   }
+}
+
+void
 Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
                                   const Wind_Disc& wind_disc,
                                   const Real dir_scatter) const
@@ -125,24 +139,6 @@ Station_Data::add (const Dstring& month_str,
    monthly.add (hour_str, record);
 }
 
-bool
-Station_Data::match_gradient_wind (const Wind_Disc& wind_disc,
-                                   const set<Index_2D>& gradient_wind_index_set,
-                                   const Wind& gradient_wind) const
-{
-
-   if (gradient_wind_index_set.size () == 0) { return true; }
-
-   const Index_2D& gw_index = wind_disc.get_index (gradient_wind);
-   for (const Index_2D& i2d : gradient_wind_index_set)
-   {
-      if (i2d == gw_index) { return true; }
-   }
-
-   return false;
-
-}
-
 Station_Data::Station_Data ()
 {
    const Record::Monthly monthly;
@@ -196,144 +192,15 @@ Station_Data::read (const Dstring& file_path)
 }
 
 Record::Set*
-Station_Data::get_record_set_ptr (const Gwsb_Free& gwsb_free) const
-{
-
-   Record::Set* record_set_ptr = new Record::Set ();
-
-   const Selection_Panel::Status& month_status = gwsb_free.get_month_status ();
-   const Selection_Panel::Status& hour_status = gwsb_free.get_hour_status ();
-
-   for (auto& m : month_status)
-   {
-
-      if (!m.second) { continue; }
-      const Record::Monthly& monthly = at (m.first);
-
-      for (auto& h : hour_status)
-      {
-
-         if (!h.second) { continue; }
-         const Record::Set& hourly = monthly.at (h.first);
-
-         for (const Record& record : hourly)
-         {
-
-            const Wind& gradient_wind = record.gradient_wind;
-
-            if (gwsb_free.match_gradient_wind (gradient_wind))
-            {
-               record_set_ptr->insert (record);
-            }
-
-         }
-
-      }
-
-   }
-
-   return record_set_ptr;
-
-}
-
-Record::Set*
-Station_Data::get_record_set_ptr (const Selection_Panel::Status& month_status,
-                                  const Selection_Panel::Status& hour_status,
-                                  const Wind_Disc& wind_disc,
-                                  const set<Index_2D>& gradient_wind_index_set) const
-{
-
-   Record::Set* record_set_ptr = new Record::Set ();
-
-   for (auto& m : month_status)
-   {
-
-      if (!m.second) { continue; }
-      const Record::Monthly& monthly = at (m.first);
-
-      for (auto& h : hour_status)
-      {
-
-         if (!h.second) { continue; }
-         const Record::Set& hourly = monthly.at (h.first);
-
-         for (const Record& record : hourly)
-         {
-            const Wind& gradient_wind = record.gradient_wind;
-            const bool match = match_gradient_wind (
-               wind_disc, gradient_wind_index_set, gradient_wind);
-            if (match) { record_set_ptr->insert (record); }
-         }
-
-      }
-
-   }
-
-   return record_set_ptr;
-
-}
-
-Record::Set*
-Station_Data::get_record_set_ptr (const Selection_Panel::Status& month_status,
-                                  const Selection_Panel::Status& hour_status,
-                                  const Wind& gradient_wind,
-                                  const Real threshold) const
-{
-
-   Record::Set* record_set_ptr = new Record::Set ();
-
-   for (auto& m : month_status)
-   {
-
-      if (!m.second) { continue; }
-      const Record::Monthly& monthly = at (m.first);
-
-      for (auto& h : hour_status)
-      {
-
-         if (!h.second) { continue; }
-         const Record::Set& hourly = monthly.at (h.first);
-
-         for (const Record& record : hourly)
-         {
-            const Wind& difference = gradient_wind - record.gradient_wind;
-            const bool match = gradient_wind.is_naw () ||
-                               gsl_isnan (threshold) ||
-                               (difference.get_speed () < threshold);
-            if (match) { record_set_ptr->insert (record); }
-         }
-
-      }
-
-   }
-
-   return record_set_ptr;
-
-}
-
-Record::Set*
 Station_Data::get_record_set_ptr (const Dstring& month_str,
                                   const Dstring& hour_str,
                                   const Wind& gradient_wind,
                                   const Real threshold) const
 {
-
    Record::Set* record_set_ptr = new Record::Set ();
-
-   const Record::Monthly& monthly = at (month_str);
-   const Record::Set& hourly = monthly.at (hour_str);
-
-   for (const Record& record : hourly)
-   {
-      const Wind& difference = gradient_wind - record.gradient_wind;
-      const bool match = gradient_wind.is_naw () ||
-                         gsl_isnan (threshold) ||
-                         (difference.get_speed () < threshold);
-      if (match) { record_set_ptr->insert (record); }
-   }
-
+   const Record::Set& hourly = at (month_str).at (hour_str);
+   hourly.sieve_by_gradient_wind (*record_set_ptr, gradient_wind, threshold);
    return record_set_ptr;
-
 }
 
 

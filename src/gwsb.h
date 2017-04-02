@@ -11,6 +11,31 @@
 namespace gwsb
 {
 
+   class Station_Panel : public Dgrid_Box
+   {
+
+      private:
+
+         Gwsb&
+         gwsb;
+
+         map<Dstring, Dbutton*>
+         button_ptr_map;
+
+         const Color
+         led_color;
+
+      public:
+
+         Station_Panel (Gwsb& gwsb,
+                        const Tokens& station_tokens,
+                        const Real margin,
+                        const Real spacing);
+
+         ~Station_Panel ();
+
+   };
+
    class Option_Panel : public Drawer_Panel
    {
 
@@ -28,9 +53,18 @@ namespace gwsb
          Dbutton
          save_button;
 
+         Dbutton
+         histogram_button;
+
       public:
 
          Option_Panel (Gwsb& gwsb);
+
+         void
+         toggle_noise ();
+
+         void
+         toggle_outline ();
 
          bool
          with_noise () const;
@@ -45,6 +79,24 @@ namespace gwsb
 
       protected:
 
+         class Histogram : public Dcanvas
+         {
+
+            private:
+
+               Gwsb&
+               gwsb;
+
+            public:
+
+               Histogram (Gtk::Window& gtk_window,
+                          Gwsb& gwsb);
+
+               void
+               render_image_buffer (const RefPtr<Context>& cr);
+
+         };
+
          Gtk::Window*
          window_ptr;
 
@@ -53,6 +105,9 @@ namespace gwsb
 
          Data
          data;
+
+         Nwp_Gw::Sequence::Map
+         sequence_map;
 
          Wind_Disc&
          wind_disc;
@@ -65,6 +120,12 @@ namespace gwsb
 
          Option_Panel
          option_panel;
+
+         Time_Chooser
+         time_chooser;
+
+         Real
+         gradient_wind_threshold;
 
          void
          pack ();
@@ -81,7 +142,7 @@ namespace gwsb
 
          Gwsb (Gtk::Window* window_ptr,
                const Size_2D& size_2d,
-               const Tokens& station_tokens,
+               const Nwp_Gw::Sequence::Map& sequence_map,
                const Data& data,
                Wind_Disc& wind_disc);
 
@@ -96,29 +157,42 @@ namespace gwsb
          bool
          save (const Dstring& file_path);
 
-         virtual void
-         set_station (const Dstring& station) = 0;
+         void
+         set_station (const Dstring& station);
 
-         virtual const Tokens&
-         get_station_tokens () const = 0; 
+         const Tokens&
+         get_station_tokens () const; 
 
-         virtual bool
+         Record::Set*
+         get_record_set_ptr ();
+
+         bool
          on_key_pressed (const Dkey_Event& event);
 
-         virtual bool
+         bool
          on_mouse_button_pressed (const Dmouse_Button_Event& event);
 
-         virtual bool
+         bool
          on_mouse_motion (const Dmouse_Motion_Event& event);
 
-         virtual bool
+         bool
+         on_mouse_scroll (const Dmouse_Scroll_Event& event);
+
+         bool
          on_mouse_button_released (const Dmouse_Button_Event& event);
 
-         virtual void
+         void
          render_background_buffer (const RefPtr<Context>& cr);
+
+         void
+         render_image_buffer (const RefPtr<Context>& cr);
+
+         void
+         spawn_histogram ();
 
    };
 
+/*
    class Gwsb_Free : public Gwsb
    {
 
@@ -200,51 +274,7 @@ namespace gwsb
          cairo (const RefPtr<Context>& cr);
 
    };
-
-   class Gwsb_Sequence : public Gwsb
-   {
-
-      protected:
-
-         Nwp_Gw::Sequence::Map
-         sequence_map;
-
-         Time_Chooser
-         time_chooser;
-
-         Real
-         gradient_wind_threshold;
-
-         void
-         handle_time_event ();
-
-      public:
-
-         Gwsb_Sequence (Gtk::Window* window_ptr,
-                        const Size_2D& size_2d,
-                        const Nwp_Gw::Sequence::Map& sequence_map,
-                        const Data& data,
-                        Wind_Disc& wind_disc);
-
-         void
-         pack ();
-
-         virtual const Tokens&
-         get_station_tokens () const; 
-
-         void
-         set_station (const Dstring& station);
-
-         bool
-         on_key_pressed (const Dkey_Event& event);
-
-         bool
-         on_mouse_scroll (const Dmouse_Scroll_Event& event);
-
-         void
-         render_image_buffer (const RefPtr<Context>& cr);
-
-   };
+*/
 
 };
 

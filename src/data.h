@@ -63,6 +63,11 @@ namespace gwsb
                                     const Wind_Disc& wind_disc,
                                     const Real dir_scatter) const;
 
+               void
+               sieve_by_gradient_wind (set<Record>& record_set,
+                                       const Wind& gradient_wind,
+                                       const Real threshold) const;
+
          };
 
          class Monthly : public map<Dstring, Record::Set>
@@ -90,32 +95,12 @@ namespace gwsb
               const Dstring& hour_str,
               const Record& record);
 
-         bool
-         match_gradient_wind (const Wind_Disc& wind_disc,
-                              const set<Index_2D>& gradient_wind_index_set,
-                              const Wind& gradient_wind) const;
-
       public:
 
          Station_Data ();
 
          void
          read (const Dstring& file_path);
-
-         Record::Set*
-         get_record_set_ptr (const Gwsb_Free& gwsb_free) const;
-
-         Record::Set*
-         get_record_set_ptr (const Selection_Panel::Status& month_status,
-                             const Selection_Panel::Status& hour_status,
-                             const Wind_Disc& wind_disc,
-                             const set<Index_2D>& gradient_wind_index_set) const;
-
-         Record::Set*
-         get_record_set_ptr (const Selection_Panel::Status& month_status,
-                             const Selection_Panel::Status& hour_status,
-                             const Wind& gradient_wind,
-                             const Real threshold = 2.5) const;
 
          Record::Set*
          get_record_set_ptr (const Dstring& month_str,

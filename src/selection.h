@@ -162,31 +162,6 @@ namespace gwsb
 
    };
 
-   class Station_Panel : public Dgrid_Box
-   {
-
-      private:
-
-         Gwsb&
-         gwsb;
-
-         map<Dstring, Dbutton*>
-         button_ptr_map;
-
-         const Color
-         led_color;
-
-      public:
-
-         Station_Panel (Gwsb& gwsb,
-                        const Tokens& station_tokens,
-                        const Real margin,
-                        const Real spacing);
-
-         ~Station_Panel ();
-
-   };
-
 };
 
 #endif /* GWSB_SELECTION_H */
