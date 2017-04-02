@@ -101,10 +101,7 @@ Gwsb::pack ()
 }
 
 void
-Gwsb::render_bg (const RefPtr<Context>& cr,
-                 const Real width,
-                 const Real height,
-                 const Box_2D& viewport)
+Gwsb::render_bg (const RefPtr<Context>& cr)
 {
 
 //   const Color& color_0 = Color::hsb (0.6, 0.4, 0.8);
@@ -116,12 +113,10 @@ Gwsb::render_bg (const RefPtr<Context>& cr,
    Color_Gradient (color_0, color_1, point_0, point_1).cairo (cr);
    cr->paint ();
 
-   Color (1.0, 1.0, 1.0, 0.4).cairo (cr);
+   Color::white (0.4).cairo (cr);
    const Point_2D point (viewport.index_2d.i, viewport.index_2d.j);
    Rect (point, viewport.size_2d.i, viewport.size_2d.j).cairo (cr);
-   cr->fill_preserve ();
-   Color::black ().cairo (cr);
-   cr->stroke ();
+   cr->fill ();
 
 }
 
@@ -345,7 +340,7 @@ Gwsb::on_mouse_button_released (const Dmouse_Button_Event& event)
 void
 Gwsb::render_background_buffer (const RefPtr<Context>& cr)
 {
-   render_bg (cr, width, height, viewport);
+   render_bg (cr);
 }
 
 Gwsb_Free::Gwsb_Free (Gtk::Window* window_ptr,
@@ -368,6 +363,8 @@ Gwsb_Free::Gwsb_Free (Gtk::Window* window_ptr,
 
    register_widget (month_panel);
    register_widget (hour_panel);
+
+   pack ();
 
 }
 
@@ -692,8 +689,6 @@ void
 Gwsb_Free::cairo (const RefPtr<Context>& cr)
 {
 
-   if (!packed) { pack (); }
-
    const Dstring& month_string = month_panel.get_string ();
    const Dstring& hour_string = hour_panel.get_string ();
    const bool outline = (option_panel.with_outline ());
@@ -735,6 +730,7 @@ Gwsb_Sequence::Gwsb_Sequence (Gtk::Window* window_ptr,
    set_station (sequence_map.get_station_tokens ().front ());
 
    register_widget (time_chooser);
+   pack ();
 
 }
 
@@ -781,6 +777,7 @@ Gwsb_Sequence::get_station_tokens () const
 void
 Gwsb_Sequence::set_station (const Dstring& station)
 {
+   this->station = station;
    const Nwp_Gw::Sequence& sequence = sequence_map.at (station);
    const set<Dtime>& time_set = sequence.get_time_set ();
    const Time_Chooser::Shape time_chooser_shape (time_set);
@@ -843,32 +840,8 @@ Gwsb_Sequence::on_mouse_scroll (const Dmouse_Scroll_Event& event)
 }
 
 void
-Gwsb_Sequence::render (const RefPtr<Context>& cr,
-                       const Wind_Disc& wind_disc,
-                       const Record::Set& record_set,
-                       const Box_2D& viewport,
-                       const bool outline,
-                       const bool with_noise)
+Gwsb_Sequence::render_image_buffer (const RefPtr<Context>& cr)
 {
-
-   wind_disc.render_bg (cr);
-
-   const Real dir_noise = (with_noise ? 5 : 0);
-   record_set.render_scatter_plot (cr, wind_disc, dir_noise);
-
-   const Real hue = 0.33;
-   if (outline) { wind_disc.render_percentage_d (cr, hue); }
-   render_count (cr, record_set.size (), viewport);
-
-   wind_disc.render_percentages (cr);
-
-}
-
-void
-Gwsb_Sequence::cairo (const RefPtr<Context>& cr)
-{
-
-   if (!packed) { pack (); }
 
    const bool outline = (option_panel.with_outline ());
    const Real with_noise = option_panel.with_noise ();
@@ -888,9 +861,16 @@ Gwsb_Sequence::cairo (const RefPtr<Context>& cr)
    Station_Data& station_data = data.get_station_data (station);
    const Record::Set* record_set_ptr = station_data.get_record_set_ptr (
       month_str, hour_str, nwp_gw, gradient_wind_threshold);
-
    record_set_ptr->feed (wind_disc);
-   render (cr, wind_disc, *record_set_ptr, viewport, outline, with_noise);
+
+   const Real hue = 0.33;
+   const Real dir_noise = (with_noise ? 5 : 0);
+   wind_disc.render_bg (cr);
+   record_set_ptr->render_scatter_plot (cr, wind_disc, dir_noise);
+   if (outline) { wind_disc.render_percentage_d (cr, hue); }
+   render_count (cr, record_set_ptr->size (), viewport);
+   wind_disc.render_percentages (cr);
+
    delete record_set_ptr;
 
    // render nwp_gw
@@ -918,7 +898,7 @@ Gwsb_Sequence::cairo (const RefPtr<Context>& cr)
 
    }
 
-   Dcanvas::cairo (cr);
+   set_foreground_ready (false);
 
 }
 

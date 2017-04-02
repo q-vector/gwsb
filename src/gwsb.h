@@ -69,11 +69,8 @@ namespace gwsb
          void
          pack ();
 
-         static void
-         render_bg (const RefPtr<Context>& cr,
-                    const Real width,
-                    const Real height,
-                    const Box_2D& viewport);
+         void
+         render_bg (const RefPtr<Context>& cr);
 
          static void
          render_count (const RefPtr<Context>& cr,
@@ -117,7 +114,7 @@ namespace gwsb
          virtual bool
          on_mouse_button_released (const Dmouse_Button_Event& event);
 
-         void
+         virtual void
          render_background_buffer (const RefPtr<Context>& cr);
 
    };
@@ -244,16 +241,8 @@ namespace gwsb
          bool
          on_mouse_scroll (const Dmouse_Scroll_Event& event);
 
-         static void
-         render (const RefPtr<Context>& cr,
-                 const Wind_Disc& wind_disc,
-                 const Record::Set& record_set,
-                 const Box_2D& viewport,
-                 const bool outline,
-                 const bool with_noise);
-
          void
-         cairo (const RefPtr<Context>& cr);
+         render_image_buffer (const RefPtr<Context>& cr);
 
    };
 
