@@ -1,4 +1,5 @@
 #include <gtkmm/messagedialog.h>
+#include <denise/histogram.h>
 #include "data.h"
 #include "selection.h"
 #include "gwsb.h"
@@ -99,7 +100,10 @@ Gwsb::Histogram::Histogram (Gtk::Window& gtk_window,
      gwsb (gwsb)
 {
 
-   const Size_2D size_2d (640, 480);
+   const Size_2D size_2d (300, 600);
+
+   set_size_request (size_2d.i, size_2d.j);
+   set_can_focus ();
 
    set_preferred_size (size_2d.i, size_2d.j);
    being_packed (Point_2D (0, 0), size_2d.i, size_2d.j);
@@ -113,8 +117,23 @@ Gwsb::Histogram::render_image_buffer (const RefPtr<Context>& cr)
    Record::Set* record_set_ptr = gwsb.get_record_set_ptr ();
    cout << record_set_ptr->size () << endl; 
 
-   Color::red ().cairo (cr);
+   Histogram_1D histogram_1d (1);
+
+   for (const Record& record : *record_set_ptr)
+   {
+      histogram_1d.increment (record.gradient_temperature);
+   }
+
+   Color::white ().cairo (cr);
    cr->paint ();
+
+   const denise::Histogram::Axis& axis = histogram_1d.get_axis ();
+   const Domain_1D domain_x (*axis.begin () - 10, *axis.rbegin () + 10);
+   const Domain_1D domain_y (-10, histogram_1d.get_max_value () + 10);
+   const Cartesian_Transform_2D transform (domain_x, domain_y, 250, 500);
+
+   histogram_1d.render (cr, transform, domain_y, "%.1f", "%.1f",
+      Color::red (), Color::black (), Color::black());
 
    delete record_set_ptr;
 
