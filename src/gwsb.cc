@@ -128,9 +128,13 @@ Gwsb::Histogram::render_image_buffer (const RefPtr<Context>& cr)
    cr->paint ();
 
    const denise::Histogram::Axis& axis = histogram_1d.get_axis ();
-   const Domain_1D domain_x (*axis.begin () - 10, *axis.rbegin () + 10);
-   const Domain_1D domain_y (-10, histogram_1d.get_max_value () + 10);
-   const Cartesian_Transform_2D transform (domain_x, domain_y, 250, 500);
+cout << *axis.begin () << " " << *axis.rbegin () << endl;
+   const Domain_1D domain_x (*axis.begin (), *axis.rbegin ());
+   const Domain_1D domain_y (0, histogram_1d.get_max_value ());
+//   const Cartesian_Transform_2D transform (domain_y, domain_x,
+//      250, 500, Point_2D (10, 60));
+   const Cartesian_Transform_2D transform (domain_y, domain_x,
+      250, 500, Point_2D (10, 60));
 
    histogram_1d.render (cr, transform, domain_y, "%.1f", "%.1f",
       Color::red (), Color::black (), Color::black());
