@@ -108,6 +108,9 @@ Gwsb::Histogram::Histogram (Gtk::Window& gtk_window,
    set_preferred_size (size_2d.i, size_2d.j);
    being_packed (Point_2D (0, 0), size_2d.i, size_2d.j);
 
+   viewport = size_2d;
+   viewport.shrink (50, 40, title.get_height () + 10, 10);
+
 }
 
 void
@@ -115,9 +118,8 @@ Gwsb::Histogram::render_image_buffer (const RefPtr<Context>& cr)
 {
 
    Record::Set* record_set_ptr = gwsb.get_record_set_ptr ();
-   cout << record_set_ptr->size () << endl; 
 
-   Histogram_1D histogram_1d (1);
+   Histogram_1D histogram_1d (1, 0.5);
 
    for (const Record& record : *record_set_ptr)
    {
@@ -128,15 +130,12 @@ Gwsb::Histogram::render_image_buffer (const RefPtr<Context>& cr)
    cr->paint ();
 
    const denise::Histogram::Axis& axis = histogram_1d.get_axis ();
-cout << *axis.begin () << " " << *axis.rbegin () << endl;
    const Domain_1D domain_x (*axis.begin (), *axis.rbegin ());
    const Domain_1D domain_y (0, histogram_1d.get_max_value ());
-//   const Cartesian_Transform_2D transform (domain_y, domain_x,
-//      250, 500, Point_2D (10, 60));
-   const Cartesian_Transform_2D transform (domain_y, domain_x,
-      250, 500, Point_2D (10, 60));
 
-   histogram_1d.render (cr, transform, domain_y, "%.1f", "%.1f",
+   const Cartesian_Transform_2D transform (domain_y, domain_x, viewport);
+
+   histogram_1d.render (cr, transform, domain_y, "%.1f", "%.0f",
       Color::red (), Color::black (), Color::black());
 
    delete record_set_ptr;
@@ -251,7 +250,6 @@ Gwsb::Gwsb (Gtk::Window* window_ptr,
      data (data),
      sequence_map (sequence_map),
      time_chooser (*this, 12),
-     viewport (Size_2D (0, 0)),
      gradient_wind_threshold (7)
 {
 

@@ -87,6 +87,7 @@ namespace gwsb
                Gwsb&
                gwsb;
 
+
             public:
 
                Histogram (Gtk::Window& gtk_window,
@@ -99,9 +100,6 @@ namespace gwsb
 
          Gtk::Window*
          window_ptr;
-
-         Box_2D
-         viewport;
 
          Data
          data;
