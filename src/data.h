@@ -60,8 +60,9 @@ namespace gwsb
 
                void
                render_scatter_plot (const RefPtr<Context>& cr,
-                                    const Wind_Disc& wind_disc,
-                                    const Real dir_scatter) const;
+                                    const Transform_2D& transform,
+                                    const Real dir_scatter,
+                                    const Polygon& polygon) const;
 
                void
                sieve_by_gradient_wind (set<Record>& record_set,

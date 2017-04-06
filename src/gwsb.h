@@ -98,8 +98,23 @@ namespace gwsb
 
          };
 
+         class Group : public denise::Polygon
+         {
+
+            public:
+
+               bool
+               defining;
+
+               Group ();
+
+         };
+
          Gtk::Window*
          window_ptr;
+
+         Group
+         group;
 
          Data
          data;
@@ -174,10 +189,10 @@ namespace gwsb
          on_mouse_motion (const Dmouse_Motion_Event& event);
 
          bool
-         on_mouse_scroll (const Dmouse_Scroll_Event& event);
+         on_mouse_button_released (const Dmouse_Button_Event& event);
 
          bool
-         on_mouse_button_released (const Dmouse_Button_Event& event);
+         on_mouse_scroll (const Dmouse_Scroll_Event& event);
 
          void
          render_background_buffer (const RefPtr<Context>& cr);

@@ -64,12 +64,13 @@ Record::Set::sieve_by_gradient_wind (set<Record>& record_set,
 
 void
 Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
-                                  const Wind_Disc& wind_disc,
-                                  const Real dir_scatter) const
+                                  const Transform_2D& transform,
+                                  const Real dir_scatter,
+                                  const Polygon& polygon) const
 {
 
    const Real scatter_ring_size = 8;
-   const Real n = Real (wind_disc.get_total_count ());
+   const Integer n = size ();
    const Real alpha = bound (50.0 / n, 0.30, 0.04);
    const Ring ring (scatter_ring_size);
 
@@ -80,8 +81,6 @@ Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
    const Real max_temp = mean + 2 * sd;
    const Real delta_temp = max_temp - min_temp;
    delete sample_ptr;
-
-   const Wind_Disc::Transform& t = wind_disc.get_transform ();
 
    for (const Record& record : *this)
    {
@@ -100,13 +99,33 @@ Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
 
       const Real r = random (dir_scatter, -dir_scatter);
       const Real direction = wind.get_direction () + r;
-      const Point_2D p = t.transform (Point_2D (direction, speed));
+      const Point_2D p = transform.transform (Point_2D (direction, speed));
 
       ring.cairo (cr, p);
       color.cairo (cr);
       cr->fill_preserve ();
       color.with_alpha (alpha * 2).cairo (cr);
       cr->stroke ();
+
+      const Wind& gw = record.gradient_wind;
+      const Real d_gw = gw.get_direction ();
+      const Real s_gw = gw.get_speed () / multiplier;
+      const Point_2D p_gw = transform.transform (Point_2D (d_gw, s_gw));
+      Label ("G", p_gw, 'c', 'c').cairo (cr);
+
+      cr->set_line_width (0.5);
+      Dashes ("1:1").cairo (cr);
+      Edge (p, p_gw).cairo (cr);
+
+      if (polygon.contains (transform.transform (
+          Point_2D (wind.get_direction (), speed))))
+      {
+         cr->save ();
+         ring.cairo (cr, p);
+         Color::green (0.5).cairo (cr);
+         cr->stroke ();
+         cr->restore ();
+      }
 
    }
 

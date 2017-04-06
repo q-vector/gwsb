@@ -68,6 +68,8 @@ Nwp_Gw::Sequence::Map::ingest (const Dstring& sequence_file_path)
    Nwp_Gw::Sequence sequence;
    igzstream file (sequence_file_path.get_string ());
 
+   const Real multiplier = 0.5144444;
+
    for (string il; std::getline (file, il); )
    {
 
@@ -83,7 +85,9 @@ Nwp_Gw::Sequence::Map::ingest (const Dstring& sequence_file_path)
       const Dtime base_time (yyyy, mm, dd, hh);
 
       station = tokens[2];
-      const Wind gw (stof (tokens[3]), stof (tokens[4]));
+      const Real u = stof (tokens[3]) * multiplier;
+      const Real v = stof (tokens[4]) * multiplier;
+      const Wind gw (u, v);
 
       if (station != this_station)
       {

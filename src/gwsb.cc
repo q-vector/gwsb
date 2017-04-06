@@ -42,7 +42,7 @@ Station_Panel::~Station_Panel ()
 Option_Panel::Option_Panel (Gwsb& gwsb)
    : Drawer_Panel (gwsb, true, 12),
      gwsb (gwsb),
-     noise_button (gwsb, "+Noise", 12, true),
+     noise_button (gwsb, "+Noise", 12, false),
      outline_button (gwsb, "Outline", 12, false),
      histogram_button (gwsb, "Histogram", 12),
      save_button (gwsb, "Save", 12)
@@ -135,11 +135,16 @@ Gwsb::Histogram::render_image_buffer (const RefPtr<Context>& cr)
 
    const Cartesian_Transform_2D transform (domain_y, domain_x, viewport);
 
-   histogram_1d.render (cr, transform, domain_y, "%.1f", "%.0f",
+   histogram_1d.render (cr, transform, domain_y, "%.0f", "%.0f",
       Color::red (), Color::black (), Color::black());
 
    delete record_set_ptr;
 
+}
+
+Gwsb::Group::Group ()
+   : defining (false)
+{
 }
 
 void
@@ -476,6 +481,15 @@ Gwsb::on_mouse_button_pressed (const Dmouse_Button_Event& event)
    if (Dcontainer::on_mouse_button_pressed (event)) { return true; }
    const Point_2D& point = event.point;
 
+   if (!group.defining)
+   {
+      group.defining = true;
+      group.clear ();
+      group.add (point);
+      render_queue_draw ();
+      return true;
+   }
+
    return false;
 
 }
@@ -487,6 +501,13 @@ Gwsb::on_mouse_motion (const Dmouse_Motion_Event& event)
    if (Dcontainer::on_mouse_motion (event)) { return true; }
    const Point_2D& point = event.point;
 
+   if (group.defining)
+   {
+      group.add (point);
+      render_queue_draw ();
+      return true;
+   }
+
    return false;
 
 }
@@ -497,6 +518,14 @@ Gwsb::on_mouse_button_released (const Dmouse_Button_Event& event)
 
    if (Dcontainer::on_mouse_button_released (event)) { return true; }
    const Point_2D& point = event.point;
+
+   if (group.defining)
+   {
+      group.defining = false;
+      if (group.size () <= 2) { group.clear (); } else { group.add (point); }
+      render_queue_draw ();
+      return true;
+   }
 
    return false;
 
@@ -516,6 +545,7 @@ Gwsb::on_mouse_scroll (const Dmouse_Scroll_Event& event)
       {
          gradient_wind_threshold *= 1.02;
          render_queue_draw ();
+         return true;
          break;
       }
 
@@ -523,6 +553,7 @@ Gwsb::on_mouse_scroll (const Dmouse_Scroll_Event& event)
       {
          gradient_wind_threshold /= 1.02;
          render_queue_draw ();
+         return true;
          break;
       }
 
@@ -564,12 +595,35 @@ Gwsb::render_image_buffer (const RefPtr<Context>& cr)
    const Real hue = 0.33;
    const Real dir_noise = (with_noise ? 5 : 0);
    wind_disc.render_bg (cr);
-   record_set_ptr->render_scatter_plot (cr, wind_disc, dir_noise);
+   record_set_ptr->render_scatter_plot (cr, wind_disc.get_transform (), dir_noise, group);
    if (outline) { wind_disc.render_percentage_d (cr, hue); }
    render_count (cr, record_set_ptr->size (), viewport);
    wind_disc.render_percentages (cr);
 
-   delete record_set_ptr;
+
+   Histogram_1D histogram_1d (1, 0.5);
+
+   for (const Record& record : *record_set_ptr)
+   {
+      const Wind& wind = record.wind;
+      const Real d = wind.get_direction ();
+      const Real s = wind.get_speed () / 0.51444444;
+      const Point_2D& p = wind_disc.get_transform ().transform (Point_2D (d, s));
+      if (group.size () > 0 && !group.contains (p)) { continue; }
+      histogram_1d.increment (record.gradient_temperature);
+   }
+
+   if (histogram_1d.size () > 0)
+   {
+      const Box_2D histogram_viewport (Index_2D (width - 40 - 80, 120), Size_2D (80, 160));
+      const denise::Histogram::Axis& axis = histogram_1d.get_axis ();
+      const Domain_1D domain_x (*axis.begin (), *axis.rbegin ());
+      const Domain_1D domain_y (0, histogram_1d.get_max_value ());
+      const Cartesian_Transform_2D transform (domain_y, domain_x, histogram_viewport);
+
+      histogram_1d.render (cr, transform, domain_y, "%.0f", "%.0f",
+         Color::blue (0.5), Color::black (), Color::black());
+   }
 
    // render nwp_gw
    {
@@ -577,9 +631,11 @@ Gwsb::render_image_buffer (const RefPtr<Context>& cr)
       const Wind_Disc::Transform& t = wind_disc.get_transform ();
 
       const Real direction = nwp_gw.get_direction ();
-      const Real speed = nwp_gw.get_speed ();
-      const Ring ring (t.get_length (gradient_wind_threshold));
+      const Real speed = nwp_gw.get_speed () / 0.5144444;
+      const Ring ring (t.get_length (gradient_wind_threshold / 0.5144444));
 
+cout << "gw direction speed " << direction << " " << speed << endl;
+cout << "threshold = " << gradient_wind_threshold << endl;
       const Point_2D p = t.transform (Point_2D (direction, speed));
 
       cr->save ();
@@ -597,7 +653,17 @@ Gwsb::render_image_buffer (const RefPtr<Context>& cr)
 
    }
 
+   cr->save ();
+   cr->set_line_width (6);
+   Color::green (0.3).cairo (cr);
+   group.cairo (cr);
+   cr->stroke ();
+   cr->restore ();
+
    set_foreground_ready (false);
+
+   delete record_set_ptr;
+
 
 }
 
