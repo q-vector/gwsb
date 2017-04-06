@@ -5,6 +5,127 @@ using namespace std;
 using namespace denise;
 using namespace gwsb;
 
+Group::Group ()
+   : defining (false)
+{
+}
+
+Groups::Groups ()
+   : defining (-1)
+{
+}
+
+Groups::~Groups ()
+{
+   clear ();
+}
+
+bool
+Groups::is_defining () const
+{
+   return (defining >= 0);
+}
+
+Integer
+Groups::get_index (const Point_2D& point) const
+{
+
+   for (Integer i = 0; i < size (); i++)
+   {
+      const Group& group = get_group (i);
+      const bool b = group.contains (point);
+      if (b) { return i; }
+   }
+
+   return -1;
+
+}
+
+Group&
+Groups::get_group (const Integer index)
+{
+   return *at (index);
+}
+
+const Group&
+Groups::get_group (const Integer index) const
+{
+   return *at (index);
+}
+
+Group&
+Groups::get_group (const Point_2D& point)
+{
+   const Integer i = get_index (point);
+   if (i < 0) { throw Exception ("No matching group."); }
+   return get_group (i);
+}
+
+const Group&
+Groups::get_group (const Point_2D& point) const
+{
+   const Integer i = get_index (point);
+   if (i < 0) { throw Exception ("No matching group."); }
+   return get_group (i);
+}
+
+Group&
+Groups::get_defining_group ()
+{
+   return *at (defining);
+}
+
+const Group&
+Groups::get_defining_group (const Integer index) const
+{
+   return *at (defining);
+}
+
+void
+Groups::add (const Point_2D& point,
+             const Integer index)
+{
+   this->defining = (index < 0 ? size () : index);
+   get_group (defining).add (point);
+}
+
+void
+Groups::remove (const Integer index)
+{
+   const Integer i = (index < 0 ? defining : index);
+   if (i < 0 || i > size () - 1) { return; }
+   erase (begin () + i);
+   if (i == defining) { defining = -1; }
+}
+
+void
+Groups::clear ()
+{
+   for (Group* group_ptr : *this) { delete group_ptr; }
+   vector<Group*>::clear ();
+   defining = -1;
+}
+
+void
+Groups::cairo (const RefPtr<Context>& cr) const
+{
+
+   if (defining < 0) { return; }
+
+   cr->save ();
+   cr->set_line_width (6);
+   Dashes ("2:10").cairo (cr);
+
+   const Group& group = get_group (defining);
+   Color (defining).cairo (cr);
+   group.cairo (cr);
+   cr->stroke ();
+
+   cr->restore ();
+
+}
+
+
 Record::Record (const Dtime& dtime,
                 const Wind& gradient_wind,
                 const Real gradient_temperature,
@@ -66,7 +187,7 @@ void
 Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
                                   const Transform_2D& transform,
                                   const Real dir_scatter,
-                                  const Polygon& polygon) const
+                                  const Groups& groups) const
 {
 
    const Real scatter_ring_size = 8;
@@ -82,6 +203,12 @@ Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
    const Real delta_temp = max_temp - min_temp;
    delete sample_ptr;
 
+   srand (0);
+
+   cr->save ();
+   cr->set_line_width (0.5);
+   Dashes ("1:2").cairo (cr);
+
    for (const Record& record : *this)
    {
 
@@ -92,10 +219,9 @@ Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
 
       if (wind.is_naw ()) { continue; }
 
-      const Real hue = (gt_residual < 0) ? 0.666 : 0;
-      const Real saturation = bound (fabs (gt_residual) / (2 * sd));
-      const Real brightness = 0.5;
-      const Color& color = Color::hsb (hue, saturation, brightness, alpha);
+      const Integer i = groups.get_index (
+         transform.transform (Point_2D (wind.get_direction (), speed)));
+      const Color& color = (i<0 ? Color::gray (0.5, alpha) : Color (i, alpha));
 
       const Real r = random (dir_scatter, -dir_scatter);
       const Real direction = wind.get_direction () + r;
@@ -103,9 +229,7 @@ Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
 
       ring.cairo (cr, p);
       color.cairo (cr);
-      cr->fill_preserve ();
-      color.with_alpha (alpha * 2).cairo (cr);
-      cr->stroke ();
+      cr->fill ();
 
       const Wind& gw = record.gradient_wind;
       const Real d_gw = gw.get_direction ();
@@ -113,21 +237,14 @@ Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
       const Point_2D p_gw = transform.transform (Point_2D (d_gw, s_gw));
       Label ("G", p_gw, 'c', 'c').cairo (cr);
 
-      cr->set_line_width (0.5);
-      Dashes ("1:1").cairo (cr);
+      cr->save ();
       Edge (p, p_gw).cairo (cr);
-
-      if (polygon.contains (transform.transform (
-          Point_2D (wind.get_direction (), speed))))
-      {
-         cr->save ();
-         ring.cairo (cr, p);
-         Color::green (0.5).cairo (cr);
-         cr->stroke ();
-         cr->restore ();
-      }
+      cr->stroke ();
+      cr->restore ();
 
    }
+
+   cr->restore ();
 
 }
 

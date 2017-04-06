@@ -14,7 +14,69 @@ namespace gwsb
 {
 
    class Criteria;
-   class Gwsb_Free;
+
+   class Group : public denise::Polygon
+   {
+
+      public:
+
+         bool
+         defining;
+
+         Group ();
+
+   };
+
+   class Groups : public vector<Group*>
+   {
+
+      public:
+
+         Integer
+         defining;
+
+         Groups ();
+
+         ~Groups ();
+
+         bool
+         is_defining () const;
+
+         Integer
+         get_index (const Point_2D& point) const;
+
+         Group&
+         get_group (const Integer index);
+
+         const Group&
+         get_group (const Integer index) const;
+
+         Group&
+         get_group (const Point_2D& point);
+
+         const Group&
+         get_group (const Point_2D& point) const;
+
+         Group&
+         get_defining_group ();
+
+         const Group&
+         get_defining_group (const Integer index) const;
+
+         void
+         add (const Point_2D& point,
+              const Integer index = -1);
+
+         void
+         remove (const Integer index = -1);
+
+         void
+         clear ();
+
+         void
+         cairo (const RefPtr<Context>& cr) const;
+
+   };
 
    class Record
    {
@@ -62,7 +124,7 @@ namespace gwsb
                render_scatter_plot (const RefPtr<Context>& cr,
                                     const Transform_2D& transform,
                                     const Real dir_scatter,
-                                    const Polygon& polygon) const;
+                                    const Groups& groups) const;
 
                void
                sieve_by_gradient_wind (set<Record>& record_set,

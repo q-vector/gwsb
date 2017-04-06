@@ -98,23 +98,11 @@ namespace gwsb
 
          };
 
-         class Group : public denise::Polygon
-         {
-
-            public:
-
-               bool
-               defining;
-
-               Group ();
-
-         };
-
          Gtk::Window*
          window_ptr;
 
-         Group
-         group;
+         Groups
+         groups;
 
          Data
          data;
@@ -150,6 +138,10 @@ namespace gwsb
          render_count (const RefPtr<Context>& cr,
                        const Integer count,
                        const Box_2D& viewport);
+
+         void
+         render_histogram (const RefPtr<Context>& cr,
+                           const set<Record>& record_set) const;
 
       public:
 

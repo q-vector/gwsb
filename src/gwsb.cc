@@ -142,11 +142,6 @@ Gwsb::Histogram::render_image_buffer (const RefPtr<Context>& cr)
 
 }
 
-Gwsb::Group::Group ()
-   : defining (false)
-{
-}
-
 void
 Gwsb::pack ()
 {
@@ -207,8 +202,8 @@ Gwsb::render_bg (const RefPtr<Context>& cr)
 
 //   const Color& color_0 = Color::hsb (0.6, 0.4, 0.8);
 //   const Color& color_1 = Color::hsb (0.6, 0.1, 0.4);
-   const Color& color_0 = Color::hsb (0.6, 0.4, 0.9);
-   const Color& color_1 = Color::hsb (0.6, 0.1, 0.7);
+   const Color& color_0 = Color::hsb (0.6, 0.0, 0.9);
+   const Color& color_1 = Color::hsb (0.6, 0.0, 0.7);
    const Point_2D point_0 (0, 0);
    const Point_2D point_1 (0, height);
    Color_Gradient (color_0, color_1, point_0, point_1).cairo (cr);
@@ -233,11 +228,68 @@ Gwsb::render_count (const RefPtr<Context>& cr,
    const Color& color_bg = Color::gray (0.8, 0.9);
 
    const Real padding = 8;
-   const Point_2D ne (viewport.get_ne ());
-   const Point_2D& anchor = ne + Point_2D (-padding, padding);
+   const Point_2D nw (viewport.get_nw ());
+   const Point_2D& anchor = nw + Point_2D (padding, padding);
    cr->set_font_size (12);
-   Label label (str, anchor, 'r', 't');
+   Label label (str, anchor, 'l', 't');
    label.cairo (cr, color_fg, color_bg, Point_2D (-3, 3));
+
+}
+
+void
+Gwsb::render_histogram (const RefPtr<Context>& cr,
+                        const set<Record>& record_set) const
+{
+
+   Histogram_1D histogram_1d (1, 0.5);
+   const Wind_Disc::Transform& t = wind_disc.get_transform ();
+
+   const Size_2D size_2d (80, 260);
+   const Index_2D index_2d (width - 40 - size_2d.i, 120);
+   const Box_2D box_2d (index_2d, size_2d);
+
+   for (const Record& record : record_set)
+   {
+      const Wind& wind = record.wind;
+      const Real d = wind.get_direction ();
+      const Real s = wind.get_speed () / 0.51444444;
+      const Point_2D& p = t.transform (Point_2D (d, s));
+      histogram_1d.increment (record.gradient_temperature);
+   }
+
+   if (histogram_1d.size () == 0) { return; }
+
+   const denise::Histogram::Axis& axis = histogram_1d.get_axis ();
+   const Domain_1D domain_x (*axis.begin (), *axis.rbegin ());
+   const Domain_1D domain_y (0, histogram_1d.get_max_value ());
+   const Cartesian_Transform_2D transform (domain_y, domain_x, box_2d);
+
+   histogram_1d.render (cr, transform, domain_y, "%.0f", "%.0f",
+      Color::gray (0.5), Color::black (), Color::black ());
+
+   for (Integer i = 0; i < groups.size (); i++)
+   {
+
+      const Group& group = groups.get_group (i);
+      Histogram_1D histogram_1d (1, 0.5);
+
+      for (const Record& record : record_set)
+      {
+         const Wind& wind = record.wind;
+         const Real d = wind.get_direction ();
+         const Real s = wind.get_speed () / 0.51444444;
+         const Point_2D& p = t.transform (Point_2D (d, s));
+         if (!group.contains (p)) { continue; }
+         histogram_1d.increment (record.gradient_temperature);
+      }
+
+      if (histogram_1d.size () > 0)
+      {
+         histogram_1d.render (cr, transform, domain_y, "", "",
+            Color (i, 0.3), Color::transparent (), Color::transparent ());
+      }
+
+   }
 
 }
 
@@ -255,7 +307,7 @@ Gwsb::Gwsb (Gtk::Window* window_ptr,
      data (data),
      sequence_map (sequence_map),
      time_chooser (*this, 12),
-     gradient_wind_threshold (7)
+     gradient_wind_threshold (5 * 0.514444)
 {
 
    Gdk::EventMask event_mask = (Gdk::SCROLL_MASK);
@@ -481,11 +533,18 @@ Gwsb::on_mouse_button_pressed (const Dmouse_Button_Event& event)
    if (Dcontainer::on_mouse_button_pressed (event)) { return true; }
    const Point_2D& point = event.point;
 
-   if (!group.defining)
+   if (event.type == GDK_3BUTTON_PRESS)
    {
-      group.defining = true;
-      group.clear ();
-      group.add (point);
+      groups.clear ();
+      render_queue_draw ();
+      return true;
+   }
+
+   if (event.control () && !groups.is_defining ())
+   {
+      groups.defining = groups.size ();
+      groups.push_back (new Group ());
+      groups.get_defining_group ().add (point);
       render_queue_draw ();
       return true;
    }
@@ -501,9 +560,9 @@ Gwsb::on_mouse_motion (const Dmouse_Motion_Event& event)
    if (Dcontainer::on_mouse_motion (event)) { return true; }
    const Point_2D& point = event.point;
 
-   if (group.defining)
+   if (groups.is_defining ())
    {
-      group.add (point);
+      groups.get_group (groups.defining).add (point);
       render_queue_draw ();
       return true;
    }
@@ -519,10 +578,12 @@ Gwsb::on_mouse_button_released (const Dmouse_Button_Event& event)
    if (Dcontainer::on_mouse_button_released (event)) { return true; }
    const Point_2D& point = event.point;
 
-   if (group.defining)
+   if (groups.is_defining ())
    {
-      group.defining = false;
-      if (group.size () <= 2) { group.clear (); } else { group.add (point); }
+      Group& group = groups.get_defining_group ();
+      if (group.size () > 2) { group.add (point); }
+      else { groups.remove (); }
+      groups.defining = -1; 
       render_queue_draw ();
       return true;
    }
@@ -559,7 +620,7 @@ Gwsb::on_mouse_scroll (const Dmouse_Scroll_Event& event)
 
    }
 
-   return Gwsb::on_mouse_scroll (event);
+   return Dcanvas::on_mouse_scroll (event);
 
 }
 
@@ -585,6 +646,8 @@ Gwsb::render_image_buffer (const RefPtr<Context>& cr)
    const Dstring& date_str = dtime.get_string ("%Y.%m.%d (%a)");
    const Dstring& time_str = dtime.get_string ("%H:%M UTC");
 
+   const Wind_Disc::Transform& t = wind_disc.get_transform ();
+
    title.set (date_str, station, time_str);
 
    wind_disc.clear ();
@@ -595,70 +658,35 @@ Gwsb::render_image_buffer (const RefPtr<Context>& cr)
    const Real hue = 0.33;
    const Real dir_noise = (with_noise ? 5 : 0);
    wind_disc.render_bg (cr);
-   record_set_ptr->render_scatter_plot (cr, wind_disc.get_transform (), dir_noise, group);
+   record_set_ptr->render_scatter_plot (cr, t, dir_noise, groups);
    if (outline) { wind_disc.render_percentage_d (cr, hue); }
    render_count (cr, record_set_ptr->size (), viewport);
    wind_disc.render_percentages (cr);
 
-
-   Histogram_1D histogram_1d (1, 0.5);
-
-   for (const Record& record : *record_set_ptr)
-   {
-      const Wind& wind = record.wind;
-      const Real d = wind.get_direction ();
-      const Real s = wind.get_speed () / 0.51444444;
-      const Point_2D& p = wind_disc.get_transform ().transform (Point_2D (d, s));
-      if (group.size () > 0 && !group.contains (p)) { continue; }
-      histogram_1d.increment (record.gradient_temperature);
-   }
-
-   if (histogram_1d.size () > 0)
-   {
-      const Box_2D histogram_viewport (Index_2D (width - 40 - 80, 120), Size_2D (80, 160));
-      const denise::Histogram::Axis& axis = histogram_1d.get_axis ();
-      const Domain_1D domain_x (*axis.begin (), *axis.rbegin ());
-      const Domain_1D domain_y (0, histogram_1d.get_max_value ());
-      const Cartesian_Transform_2D transform (domain_y, domain_x, histogram_viewport);
-
-      histogram_1d.render (cr, transform, domain_y, "%.0f", "%.0f",
-         Color::blue (0.5), Color::black (), Color::black());
-   }
+   render_histogram (cr, *record_set_ptr);
 
    // render nwp_gw
    {
 
-      const Wind_Disc::Transform& t = wind_disc.get_transform ();
-
       const Real direction = nwp_gw.get_direction ();
       const Real speed = nwp_gw.get_speed () / 0.5144444;
       const Ring ring (t.get_length (gradient_wind_threshold / 0.5144444));
-
-cout << "gw direction speed " << direction << " " << speed << endl;
-cout << "threshold = " << gradient_wind_threshold << endl;
       const Point_2D p = t.transform (Point_2D (direction, speed));
 
       cr->save ();
       cr->set_line_width (4);
-      ring.cairo (cr, p);
-      Color::black (0.0).cairo (cr);
-      cr->fill_preserve ();
+      cr->set_font_size (24);
       Color::black (0.4).cairo (cr);
+      ring.cairo (cr, p);
       cr->stroke ();
 
-      cr->set_font_size (24);
       Label ("G", p, 'c', 'c').cairo (cr, Color::black (0.6),
          Color::black (0.3), Point_2D (2, 2));
       cr->restore ();
 
    }
 
-   cr->save ();
-   cr->set_line_width (6);
-   Color::green (0.3).cairo (cr);
-   group.cairo (cr);
-   cr->stroke ();
-   cr->restore ();
+   groups.cairo (cr);
 
    set_foreground_ready (false);
 
