@@ -6,7 +6,6 @@ using namespace denise;
 using namespace gwsb;
 
 Group::Group ()
-   : defining (false)
 {
 }
 
@@ -170,20 +169,6 @@ Record::Set::get_gradient_temperature_sample_ptr () const
 }
 
 void
-Record::Set::sieve_by_gradient_wind (set<Record>& record_set,
-                                     const Wind& gradient_wind,
-                                     const Real threshold) const
-{
-   for (const Record& record : *this)
-   {
-      const Wind& difference = gradient_wind - record.gradient_wind;
-      const bool match = gradient_wind.is_naw () || gsl_isnan (threshold) ||
-                         (difference.get_speed () < threshold);
-      if (match) { record_set.insert (record); }
-   }
-}
-
-void
 Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
                                   const Transform_2D& transform,
                                   const Real dir_scatter,
@@ -248,48 +233,63 @@ Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
 
 }
 
-Record::Monthly::Monthly ()
+Record::Daily::Daily ()
 {
    const Record::Set hourly;
    for (Integer hour = 0; hour <= 24; hour++)
    {
-      const Dstring& hour_str = Dstring::render ("%02dZ", hour);
-      insert (make_pair (hour_str, hourly));
+      insert (make_pair (hour, hourly));
    }
 }
 
 void
-Record::Monthly::add (const Dstring& hour_str,
-                      const Record& record)
+Record::Daily::add (const Integer hour,
+                    const Record& record)
 {
-   Record::Set& hourly = at (hour_str);
+   Record::Set& hourly = at (hour);
    hourly.insert (record);
 }
 
+bool
+Record::Daily::match_day_of_year (const Integer a,
+                                  const Integer b,
+                                  const Integer threshold)
+{
+   const Integer n = 365;
+   if (abs (a - b) <= threshold) { return true; }
+   if (((b + n) - a) <= threshold) { return true; }
+   if (((a + n) - b) <= threshold) { return true; }
+   return false;
+}
+
+bool
+Record::Daily::match_hour (const Integer a,
+                           const Integer b,
+                           const Integer threshold)
+{
+   const Integer n = 24;
+   if (abs (a - b) <= threshold) { return true; }
+   if (((b + n) - a) <= threshold) { return true; }
+   if (((a + n) - b) <= threshold) { return true; }
+   return false;
+}
+
 void
-Station_Data::add (const Dstring& month_str,
-                   const Dstring& hour_str,
+Station_Data::add (const Integer day_of_year,
+                   const Integer hour,
                    const Record& record)
 {
-   Record::Monthly& monthly = at (month_str);
-   monthly.add (hour_str, record);
+   Record::Daily& daily = at (day_of_year);
+   daily.add (hour, record);
 }
 
 Station_Data::Station_Data ()
 {
-   const Record::Monthly monthly;
-   insert (make_pair ("Jan", monthly));
-   insert (make_pair ("Feb", monthly));
-   insert (make_pair ("Mar", monthly));
-   insert (make_pair ("Apr", monthly));
-   insert (make_pair ("May", monthly));
-   insert (make_pair ("Jun", monthly));
-   insert (make_pair ("Jul", monthly));
-   insert (make_pair ("Aug", monthly));
-   insert (make_pair ("Sep", monthly));
-   insert (make_pair ("Oct", monthly));
-   insert (make_pair ("Nov", monthly));
-   insert (make_pair ("Dec", monthly));
+   for (Integer i = i; i <= 366; i++)
+   {
+      const Record::Daily daily;
+      insert (make_pair (i, daily));
+   }
 }
 
 void
@@ -315,11 +315,11 @@ Station_Data::read (const Dstring& file_path)
       const Wind& gwind = Wind::direction_speed (gw_direction, gw_speed);
       const Wind& wind = Wind::direction_speed (direction, speed);
 
-      const Dstring& month_str = dtime.get_string ("%b");
-      const Dstring& hour_str = dtime.get_string ("%HZ");
+      const Integer j = stoi (dtime.get_string ("%j"));
+      const Integer h = stoi (dtime.get_string ("%H"));
       const Record record (dtime, gwind, gradient_temperature, wind);
 
-      add (month_str, hour_str, record);
+      add (j, h, record);
 
    }
 
@@ -328,17 +328,56 @@ Station_Data::read (const Dstring& file_path)
 }
 
 Record::Set*
-Station_Data::get_record_set_ptr (const Dstring& month_str,
-                                  const Dstring& hour_str,
+Station_Data::get_record_set_ptr (const Integer day_of_year,
+                                  const Integer day_of_year_threshold,
+                                  const Integer hour,
+                                  const Integer hour_threshold,
                                   const Wind& gradient_wind,
                                   const Real threshold) const
 {
-   Record::Set* record_set_ptr = new Record::Set ();
-   const Record::Set& hourly = at (month_str).at (hour_str);
-   hourly.sieve_by_gradient_wind (*record_set_ptr, gradient_wind, threshold);
-   return record_set_ptr;
-}
 
+   const Integer n = 365;
+   Record::Set* record_set_ptr = new Record::Set ();
+
+   for (auto jj = begin (); jj != end (); jj++)
+   {
+
+      const Integer j = jj->first;
+      const Record::Daily& daily = jj->second;
+
+      if (!Record::Daily::match_day_of_year (
+         j, day_of_year, day_of_year_threshold))
+      {
+         continue;
+      }
+
+      for (auto hh = daily.begin (); hh != daily.end (); hh++)
+      {
+
+         const Integer h = hh->first;
+         const Record::Set& hourly = hh->second;
+
+         if (!Record::Daily::match_hour (h, hour, hour_threshold))
+         {
+            continue;
+         }
+
+         for (const Record& record : hourly)
+         {
+            const Wind& difference = gradient_wind - record.gradient_wind;
+            const bool match = gradient_wind.is_naw () ||
+                               gsl_isnan (threshold) ||
+                               (difference.get_speed () < threshold);
+            if (match) { record_set_ptr->insert (record); }
+         }
+
+      }
+
+   }
+
+   return record_set_ptr;
+
+}
 
 void
 Data::survey ()

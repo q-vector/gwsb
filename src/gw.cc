@@ -7,11 +7,13 @@ using namespace gwsb;
 Nwp_Gw::Nwp_Gw (const Dstring& station,
                 const Dtime& base_time,
                 const Real forecast_hour,
-                const Wind& wind)
+                const Wind& wind,
+                const Real temperature)
    : Wind (wind),
      station (station),
      base_time (base_time),
-     forecast_hour (forecast_hour)
+     forecast_hour (forecast_hour),
+     temperature (temperature)
 {
 }
 
@@ -89,6 +91,8 @@ Nwp_Gw::Sequence::Map::ingest (const Dstring& sequence_file_path)
       const Real v = stof (tokens[4]) * multiplier;
       const Wind gw (u, v);
 
+      const Real t = stof (tokens[5]);
+
       if (station != this_station)
       {
          station_tokens.push_back (station);
@@ -96,7 +100,7 @@ Nwp_Gw::Sequence::Map::ingest (const Dstring& sequence_file_path)
          this_station = station;
       }
   
-      at (station).ingest (Nwp_Gw (station, base_time, forecast_hour, gw));
+      at (station).ingest (Nwp_Gw (station, base_time, forecast_hour, gw, t));
 
    }
 

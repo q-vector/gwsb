@@ -30,10 +30,14 @@ namespace gwsb
          Real
          forecast_hour;
 
+         Real
+         temperature;
+
          Nwp_Gw (const Dstring& station,
                  const Dtime& base_time,
                  const Real forecast_hour,
-                 const Wind& wind);
+                 const Wind& wind,
+                 const Real temperature);
 
          Dtime
          get_time () const;

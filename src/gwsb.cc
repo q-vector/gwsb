@@ -135,7 +135,7 @@ Gwsb::Histogram::render_image_buffer (const RefPtr<Context>& cr)
 
    const Cartesian_Transform_2D transform (domain_y, domain_x, viewport);
 
-   histogram_1d.render (cr, transform, domain_y, "%.0f", "%.0f",
+   histogram_1d.render (cr, transform, "%.0f", "%.0f",
       Color::red (), Color::black (), Color::black());
 
    delete record_set_ptr;
@@ -171,7 +171,7 @@ Gwsb::pack ()
    const Real viewport_height = height - title_height - sp_height - margin * 3;
    const Real viewport_x = width - viewport_width - margin;
    const Real viewport_y = height - viewport_height - margin;
-   const Real origin_x = viewport_x + viewport_width / 2;
+   const Real origin_x = viewport_x + viewport_width * 0.42;
    const Real origin_y = viewport_y + viewport_height / 2;
    const Point_2D origin (origin_x, origin_y);
 
@@ -217,28 +217,9 @@ Gwsb::render_bg (const RefPtr<Context>& cr)
 }
 
 void
-Gwsb::render_count (const RefPtr<Context>& cr,
-                    const Integer count,
-                    const Box_2D& viewport)
-{
-
-   const Dstring fmt (count == 1 ? "%d point" : "%d points");
-   const Dstring& str = Dstring::render (fmt, count);
-   const Color& color_fg = Color::gray (0.2, 0.7);
-   const Color& color_bg = Color::gray (0.8, 0.9);
-
-   const Real padding = 8;
-   const Point_2D nw (viewport.get_nw ());
-   const Point_2D& anchor = nw + Point_2D (padding, padding);
-   cr->set_font_size (12);
-   Label label (str, anchor, 'l', 't');
-   label.cairo (cr, color_fg, color_bg, Point_2D (-3, 3));
-
-}
-
-void
 Gwsb::render_histogram (const RefPtr<Context>& cr,
-                        const set<Record>& record_set) const
+                        const set<Record>& record_set,
+                        const Nwp_Gw& nwp_gw) const
 {
 
    Histogram_1D histogram_1d (1, 0.5);
@@ -264,8 +245,19 @@ Gwsb::render_histogram (const RefPtr<Context>& cr,
    const Domain_1D domain_y (0, histogram_1d.get_max_value ());
    const Cartesian_Transform_2D transform (domain_y, domain_x, box_2d);
 
-   histogram_1d.render (cr, transform, domain_y, "%.0f", "%.0f",
+   histogram_1d.render (cr, transform, "%.0f", "%.0f",
       Color::gray (0.5), Color::black (), Color::black ());
+
+   const Integer count = histogram_1d.get_number_of_points ();
+   const Dstring fmt (count == 1 ? "%d point" : "%d points");
+   const Dstring& str = Dstring::render (fmt, count);
+   const Color& color_fg = Color::gray (0.2, 0.7);
+   const Color& color_bg = Color::gray (0.8, 0.9);
+
+   const Point_2D& anchor = Point_2D (width - 50 - size_2d.i, 120 + 260 + 10);
+   cr->set_font_size (12);
+   Label label (str, anchor, 'l', 't');
+   label.cairo (cr, Color::gray (0.2, 0.7), Color::gray (0.8, 0.9), Point_2D (-3, 3));
 
    for (Integer i = 0; i < groups.size (); i++)
    {
@@ -285,11 +277,28 @@ Gwsb::render_histogram (const RefPtr<Context>& cr,
 
       if (histogram_1d.size () > 0)
       {
-         histogram_1d.render (cr, transform, domain_y, "", "",
-            Color (i, 0.3), Color::transparent (), Color::transparent ());
+         cr->save ();
+         cr->set_line_width (3);
+         Color (i, 0.8).cairo (cr);
+         histogram_1d.render_outline (cr, transform);
+         cr->restore ();
+      }
+
+      {
+         const Integer dj = (i + 1) * 15;
+         const Integer count = histogram_1d.get_number_of_points ();
+         const Dstring& str = Dstring::render (fmt, count);
+         Label label (str, anchor + Point_2D (0, dj), 'l', 't');
+         label.cairo (cr, Color (i, 0.9), Color (i, 0.5), Point_2D (-3, 3));
+
       }
 
    }
+
+   const Point_2D& t_p = transform.transform (Point_2D (0, nwp_gw.temperature));
+   const Dstring& t_str = Dstring::render ("%.1f\u00b0 C \u2192", nwp_gw.temperature);
+   Color::black ().cairo (cr);
+   Label (t_str, t_p + Point_2D (-20, 0), 'r', 'c').cairo (cr);
 
 }
 
@@ -466,13 +475,13 @@ Gwsb::get_record_set_ptr ()
    const Dtime& dtime = time_chooser.get_time ();
    const Nwp_Gw::Sequence& sequence = sequence_map.at (station);
    const Nwp_Gw& nwp_gw = sequence.at (dtime);
-   const Dstring& month_str = dtime.get_string ("%b");
-   const Dstring& hour_str = dtime.get_string ("%HZ");
+   const Integer day_of_year = stoi (dtime.get_string ("%j"));
+   const Integer hour = stoi (dtime.get_string ("%H"));
 
    Station_Data& station_data = data.get_station_data (station);
 
-   return station_data.get_record_set_ptr (month_str,
-      hour_str, nwp_gw, gradient_wind_threshold);
+   return station_data.get_record_set_ptr (day_of_year, 15,
+      hour, 0, nwp_gw, gradient_wind_threshold);
 
 }
 
@@ -660,10 +669,9 @@ Gwsb::render_image_buffer (const RefPtr<Context>& cr)
    wind_disc.render_bg (cr);
    record_set_ptr->render_scatter_plot (cr, t, dir_noise, groups);
    if (outline) { wind_disc.render_percentage_d (cr, hue); }
-   render_count (cr, record_set_ptr->size (), viewport);
    wind_disc.render_percentages (cr);
 
-   render_histogram (cr, *record_set_ptr);
+   render_histogram (cr, *record_set_ptr, nwp_gw);
 
    // render nwp_gw
    {
@@ -710,370 +718,4 @@ Gwsb::spawn_histogram ()
    window_ptr->show ();
 
 }
-
-/*
-Gwsb_Free::Gwsb_Free (Gtk::Window* window_ptr,
-                      const Size_2D& size_2d,
-                      const Data& data,
-                      Wind_Disc& wind_disc)
-   : Gwsb (window_ptr,
-           size_2d,
-           data.get_station_tokens (),
-           data,
-           wind_disc),
-     month_panel (*this, 0, 6),
-     hour_panel (*this, 0, 6),
-     selecting_gradient_wind (false)
-{
-
-   const Dtime now;
-   month_panel.set_value (now.get_string ("%b"), false);
-   hour_panel.set_value (now.get_string ("%02dZ"), false);
-
-   register_widget (month_panel);
-   register_widget (hour_panel);
-
-   pack ();
-
-}
-
-void
-Gwsb_Free::pack ()
-{
-
-   Gwsb::pack ();
-
-   const Real margin = 6;
-   const Real title_height = title.get_height ();
-
-   const Real sp_anchor_x = margin;
-   const Real sp_anchor_y = title_height + margin; 
-   const Real sp_width = width - 2 * margin;
-   const Real sp_height = 60;
-   const Point_2D sp_anchor (sp_anchor_x, sp_anchor_y);
-
-   const Real mp_anchor_x = margin; 
-   const Real mp_anchor_y = sp_anchor_y + sp_height + margin; 
-   const Real mp_width = 60;
-   const Real mp_height = height - mp_anchor_y - margin;
-   const Point_2D mp_anchor (mp_anchor_x, mp_anchor_y);
-
-   const Real hp_anchor_x = mp_anchor_x + mp_width + margin; 
-   const Real hp_anchor_y = mp_anchor_y; 
-   const Real hp_width = 60;
-   const Real hp_height = height - hp_anchor_y - margin;
-   const Point_2D hp_anchor (hp_anchor_x, hp_anchor_y);
-
-   const Real bp_width = 200;
-   const Real bp_height = 20;
-   const Real bp_anchor_x = width - bp_width - margin;
-   const Real bp_anchor_y = height - bp_height - margin;
-   const Point_2D bp_anchor (bp_anchor_x, bp_anchor_y);
-
-   month_panel.being_packed (mp_anchor, mp_width, mp_height);
-   month_panel.pack ();
-
-   hour_panel.being_packed (hp_anchor, hp_width, hp_height);
-   hour_panel.pack ();
-
-   this->packed = true;
-
-}
-
-const Tokens&
-Gwsb_Free::get_station_tokens () const
-{
-   return data.get_station_tokens ();
-}
-
-void
-Gwsb_Free::set_station (const Dstring& station)
-{
-   this->station = station;
-   render_queue_draw ();
-}
-
-const set<Index_2D>&
-Gwsb_Free::get_gradient_wind_index_set () const
-{
-   return gradient_wind_index_set;
-}
-
-const Selection_Panel::Status&
-Gwsb_Free::get_month_status () const
-{
-   return month_panel.get_status ();
-}
-
-const Selection_Panel::Status&
-Gwsb_Free::get_hour_status () const
-{
-   return hour_panel.get_status ();
-}
-
-bool
-Gwsb_Free::add_gradient_wind_index (const Index_2D& index_2d,
-                                    const bool clear_first,
-                                    const bool delete_if_present)
-{
-
-   if (clear_first) { clear_gradient_wind_index (); }
-
-   set<Index_2D>::iterator iterator = gradient_wind_index_set.find (index_2d);
-   if (iterator != gradient_wind_index_set.end ())
-   {
-      if (delete_if_present)
-      {
-         gradient_wind_index_set.erase (iterator);
-         return true;
-      }
-      else
-      {
-         return false;
-      }
-   }
-   else
-   {
-      gradient_wind_index_set.insert (index_2d);
-      return true;
-   }
-
-}
-
-void
-Gwsb_Free::delete_gradient_wind_index (const Index_2D& index_2d)
-{
-   set<Index_2D>::iterator iterator = gradient_wind_index_set.find (index_2d);
-   if (iterator != gradient_wind_index_set.end ())
-   {
-      gradient_wind_index_set.erase (iterator);
-   }
-}
-
-void
-Gwsb_Free::clear_gradient_wind_index ()
-{
-   gradient_wind_index_set.clear ();
-}
-
-bool
-Gwsb_Free::match_gradient_wind (const Wind& gradient_wind) const
-{
-
-   if (gradient_wind_index_set.size () == 0) { return true; }
-
-   const Index_2D& gw_index = wind_disc.get_index (gradient_wind);
-
-   for (const Index_2D& i2d : gradient_wind_index_set)
-   {
-      if (i2d == gw_index) { return true; }
-   }
-
-   return false;
-
-}
-
-bool
-Gwsb_Free::on_key_pressed (const Dkey_Event& event)
-{
-
-   switch (event.value)
-   {
-
-      case GDK_KEY_Up:
-      {
-         month_panel.decrement ();
-         return true;
-      }
-
-      case GDK_KEY_Down:
-      {
-         month_panel.increment ();
-         return true;
-      }
-
-      case GDK_KEY_Left:
-      {
-         hour_panel.decrement ();
-         return true;
-      }
-
-      case GDK_KEY_Right:
-      {
-         hour_panel.increment ();
-         return true;
-      }
-
-   }
-
-   return Gwsb::on_key_pressed (event);
-
-}
-
-bool
-Gwsb_Free::on_mouse_button_pressed (const Dmouse_Button_Event& event)
-{
-
-   const Point_2D& point = event.point;
-
-   switch (event.button)
-   {
-
-      case 1:
-      {
-
-         try
-         {
-
-            const Wind& gradient_wind = wind_disc.get_wind (point);
-            const Index_2D& index_2d = wind_disc.get_index (gradient_wind);
-
-            const bool control_pressed = (event.state & GDK_CONTROL_MASK);
-            const bool clear_first = !control_pressed;
-            add_gradient_wind_index (index_2d, clear_first, true);
-
-            selecting_gradient_wind = true;
-
-         }
-         catch (const Exception& e)
-         {
-            if (viewport.contains (point.x, point.y))
-            {
-               clear_gradient_wind_index ();
-            }
-         }
-
-         render_queue_draw ();
-         return true;
-         break;
-
-      }
-
-   }
-
-   return Gwsb::on_mouse_button_pressed (event);
-
-}
-
-bool
-Gwsb_Free::on_mouse_motion (const Dmouse_Motion_Event& event)
-{
-
-   const Point_2D& point = event.point;
-
-   if (selecting_gradient_wind)
-   {
-
-      try
-      {
-         const Wind& gradient_wind = wind_disc.get_wind (point);
-         const Index_2D& index_2d = wind_disc.get_index (gradient_wind);
-         if (add_gradient_wind_index (index_2d, false, false))
-         {
-            render_queue_draw ();
-            return true;
-         }
-      }
-      catch (const Exception& e)
-      {
-      }
-
-   }
-
-   return Gwsb::on_mouse_motion (event);
-
-}
-
-bool
-Gwsb_Free::on_mouse_button_released (const Dmouse_Button_Event& event)
-{
-
-   if (Dcontainer::on_mouse_button_released (event)) { return true; }
-   const Point_2D& point = event.point;
-
-   bool processed = false;
-
-//   switch (event.button)
-//   {
-//
-//      case 1:
-//      {
-//
-//         try
-//         {
-//            const bool control_pressed = (event.state & GDK_CONTROL_MASK);
-//            if (control_pressed)
-//            {
-//               const Wind& gradient_wind = wind_disc.get_wind (point);
-//               const Index_2D& index_2d = wind_disc.get_index (gradient_wind);
-//               if (!dragging_gradient_wind)
-//               {
-//                  delete_gradient_wind_index (index_2d);
-//                  render ();
-//                  refresh ();
-//                  processed = true;
-//               }
-//            }
-//         }
-//         catch (const Exception& e)
-//         {
-//         }
-//         break;
-//
-//      }
-//   }
-      
-   selecting_gradient_wind = false;
-   return processed;
-
-}
-
-void
-Gwsb_Free::render (const RefPtr<Context>& cr,
-                   const Wind_Disc& wind_disc,
-                   const Record::Set& record_set,
-                   const set<Index_2D>& gradient_wind_index_set,
-                   const Box_2D& viewport,
-                   const bool outline,
-                   const bool with_noise)
-{
-
-   wind_disc.render_bg (cr);
-
-   const Real dir_noise = (with_noise ? 5 : 0);
-   record_set.render_scatter_plot (cr, wind_disc, dir_noise);
-
-   const Real hue = 0.33;
-   if (outline) { wind_disc.render_percentage_d (cr, hue); }
-   render_count (cr, record_set.size (), viewport);
-
-   wind_disc.render_percentages (cr);
-   wind_disc.render_index_set (cr, gradient_wind_index_set);
-
-}
-
-void
-Gwsb_Free::cairo (const RefPtr<Context>& cr)
-{
-
-   const Dstring& month_string = month_panel.get_string ();
-   const Dstring& hour_string = hour_panel.get_string ();
-   const bool outline = (option_panel.with_outline ());
-   const Real with_noise = option_panel.with_noise ();
-
-   title.set (month_string, station, hour_string);
-
-   Station_Data& station_data = data.get_station_data (station);
-   const Record::Set* record_set_ptr = station_data.get_record_set_ptr (*this);
-
-   wind_disc.clear ();
-   record_set_ptr->feed (wind_disc);
-   render (cr, wind_disc, *record_set_ptr,
-      gradient_wind_index_set, viewport, outline, with_noise);
-   Dcanvas::cairo (cr);
-
-   delete record_set_ptr;
-
-}
-*/
 

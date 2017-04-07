@@ -20,9 +20,6 @@ namespace gwsb
 
       public:
 
-         bool
-         defining;
-
          Group ();
 
    };
@@ -126,36 +123,43 @@ namespace gwsb
                                     const Real dir_scatter,
                                     const Groups& groups) const;
 
-               void
-               sieve_by_gradient_wind (set<Record>& record_set,
-                                       const Wind& gradient_wind,
-                                       const Real threshold) const;
-
          };
 
-         class Monthly : public map<Dstring, Record::Set>
+         class Daily : public map<Integer, Record::Set>
          {
 
             public:
    
-               Monthly ();
+               Daily ();
 
                void
-               add (const Dstring& hour_str,
+               add (const Integer hour,
                     const Record& record);
+
+               static bool
+               match_day_of_year (const Integer day_of_year_a,
+                                  const Integer day_of_year_b,
+                                  const Integer day_of_year_threshold);
+
+
+               static bool
+               match_hour (const Integer hour_a,
+                           const Integer hour_b,
+                           const Integer hour_threshold);
+
 
          };
 
    };
 
-   class Station_Data : public map<Dstring, Record::Monthly>
+   class Station_Data : public map<Integer, Record::Daily>
    {
 
       private:
 
          void
-         add (const Dstring& month_str,
-              const Dstring& hour_str,
+         add (const Integer day_of_year,
+              const Integer hour,
               const Record& record);
 
       public:
@@ -166,8 +170,10 @@ namespace gwsb
          read (const Dstring& file_path);
 
          Record::Set*
-         get_record_set_ptr (const Dstring& month_str,
-                             const Dstring& hour_str,
+         get_record_set_ptr (const Integer day_of_year,
+                             const Integer day_of_year_threshold,
+                             const Integer hour,
+                             const Integer hour_threshold,
                              const Wind& gradient_wind,
                              const Real threshold = 2.5) const;
 

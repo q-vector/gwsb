@@ -134,14 +134,10 @@ namespace gwsb
          void
          render_bg (const RefPtr<Context>& cr);
 
-         static void
-         render_count (const RefPtr<Context>& cr,
-                       const Integer count,
-                       const Box_2D& viewport);
-
          void
          render_histogram (const RefPtr<Context>& cr,
-                           const set<Record>& record_set) const;
+                           const set<Record>& record_set,
+                           const Nwp_Gw& nwp_gw) const;
 
       public:
 
@@ -196,90 +192,6 @@ namespace gwsb
          spawn_histogram ();
 
    };
-
-/*
-   class Gwsb_Free : public Gwsb
-   {
-
-      protected:
-
-         Month_Panel
-         month_panel;
-
-         Hour_Panel
-         hour_panel;
-
-         set<Index_2D>
-         gradient_wind_index_set;
-
-         bool
-         selecting_gradient_wind;
-
-      public:
-
-         Gwsb_Free (Gtk::Window* window_ptr,
-                    const Size_2D& size_2d,
-                    const Data& data,
-                    Wind_Disc& wind_disc);
-
-         void
-         pack ();
-
-         virtual const Tokens&
-         get_station_tokens () const; 
-
-         void
-         set_station (const Dstring& station);
-
-         const set<Index_2D>&
-         get_gradient_wind_index_set () const;
-
-         const Selection_Panel::Status&
-         get_month_status () const;
-
-         const Selection_Panel::Status&
-         get_hour_status () const;
-
-         bool
-         add_gradient_wind_index (const Index_2D& index_2d,
-                                  const bool clear_first = false,
-                                  const bool delete_if_present = false);
-
-         void
-         delete_gradient_wind_index (const Index_2D& index_2d);
-
-         void
-         clear_gradient_wind_index ();
-
-         bool
-         match_gradient_wind (const Wind& gradient_wind) const;
-
-         bool
-         on_key_pressed (const Dkey_Event& event);
-
-         bool
-         on_mouse_button_pressed (const Dmouse_Button_Event& event);
-
-         bool
-         on_mouse_motion (const Dmouse_Motion_Event& event);
-
-         bool
-         on_mouse_button_released (const Dmouse_Button_Event& event);
-
-         static void
-         render (const RefPtr<Context>& cr,
-                 const Wind_Disc& wind_disc,
-                 const Record::Set& record_set,
-                 const set<Index_2D>& gradient_wind_index_set,
-                 const Box_2D& viewport,
-                 const bool outline,
-                 const bool with_noise);
-
-         void
-         cairo (const RefPtr<Context>& cr);
-
-   };
-*/
 
 };
 

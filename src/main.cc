@@ -123,10 +123,12 @@ main (int argc,
 
       }
 
+      const Real size = size_2d.j / 2.4;
+      const Point_2D origin (size_2d.i * 0.5, size_2d.j * 0.5);
+      cout << origin << endl;
       Data data (data_path, station_string);
       Wind_Disc wind_disc (number_of_directions, threshold_tuple,
-         Point_2D (size_2d.i / 2, size_2d.j / 2), size_2d.j / 2.4,
-         speed_label_tuple, max_speed);
+         origin, size * 0.2, speed_label_tuple, max_speed);
 
       if (sequence_dir_path != "")
       {
@@ -152,63 +154,9 @@ main (int argc,
       else
       if (command_line)
       {
-
-/*
-         const bool outline = false;
-         const bool with_noise = true;
-
-         const Dstring station = station_string;
-         Station_Data& station_data = data.get_station_data (station);
-
-         set<Integer> month_set;
-         month_set.insert (2);
-         set<Integer> hour_set;
-         hour_set.insert (6);
-
-         const Record::Set* record_set_ptr =
-            station_data.get_record_set_ptr (month_set, hour_set,
-               gradient_wind, gradient_wind_threshold);
-
-         RefPtr<Surface> surface = denise::get_surface (
-            size_2d, "png", "./gwsb.png");
-         RefPtr<Context> cr = denise::get_cr (surface);
-
-         Color::white ().cairo (cr);
-         cr->paint ();
-
-         wind_disc.render_bg (cr);
-         record_set_ptr->render_scatter_plot (cr, wind_disc, 5);
-
-         //const Box_2D viewport (Index_2D (10, 50), Size_2D (980, 740));
-         //Gwsb::render (cr, wind_disc, *record_set_ptr,
-         //   gradient_wind_index_set, viewport, outline, with_noise);
-
-         delete record_set_ptr;
-
-         surface->write_to_png ("./gwsb.png");
-*/
-
       }
       else
       {
-
-/*
-         Gtk::Main gtk_main (argc, argv);
-
-         Gtk::Window* window_ptr = new Gtk::Window ();
-         Gtk::Window& window = *window_ptr;
-         window.set_resizable (false);
-         window.resize (size_2d.i, size_2d.j);
-         window.set_title ("gwsb");
-
-         Gwsb_Free gwsb_free (window_ptr, size_2d, data, wind_disc);
-
-         window.add (gwsb_free);
-         gwsb_free.show ();
-
-         Gtk::Main::run (window);
-*/
-
       }
 
    }
