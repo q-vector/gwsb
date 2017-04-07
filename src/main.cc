@@ -133,7 +133,7 @@ main (int argc,
       if (sequence_dir_path != "")
       {
 
-         const Nwp_Gw::Sequence::Map sequence_map (sequence_dir_path);
+         const Predictor::Sequence::Map sequence_map (sequence_dir_path);
 
          Gtk::Main gtk_main (argc, argv);
 

@@ -16,7 +16,7 @@ namespace gwsb
    class Criteria;
    class Gwsb;
 
-   class Nwp_Gw : public Wind
+   class Predictor
    {
 
       public:
@@ -30,32 +30,35 @@ namespace gwsb
          Real
          forecast_hour;
 
-         Real
-         temperature;
+         Wind
+         wind_925;
 
-         Nwp_Gw (const Dstring& station,
-                 const Dtime& base_time,
-                 const Real forecast_hour,
-                 const Wind& wind,
-                 const Real temperature);
+         Real
+         temperature_925;
+
+         Predictor (const Dstring& station,
+                    const Dtime& base_time,
+                    const Real forecast_hour,
+                    const Wind& wind_925,
+                    const Real temperature_925);
 
          Dtime
          get_time () const;
 
          bool
-         operator == (const Nwp_Gw& nwp_gw) const;
+         operator == (const Predictor& predictor) const;
          
          bool
-         operator > (const Nwp_Gw& nwp_gw) const;
+         operator > (const Predictor& predictor) const;
          
          bool
-         operator < (const Nwp_Gw& nwp_gw) const;
+         operator < (const Predictor& predictor) const;
 
          void
          render (const RefPtr<Context>& cr,
                  const Wind_Disc& wind_disc) const;
 
-         class Sequence : public map<Dtime, Nwp_Gw>
+         class Sequence : public map<Dtime, Predictor>
          {
 
             private:
@@ -69,7 +72,7 @@ namespace gwsb
                get_time_set () const;
 
                void
-               ingest (const Nwp_Gw& nwp_gw);
+               ingest (const Predictor& predictor);
 
                class Map : public map <Dstring, Sequence>
                {

@@ -4,6 +4,7 @@
 #include <set>
 #include <iostream>
 #include <denise/gtkmm.h>
+#include <denise/histogram.h>
 #include <denise/met.h>
 #include <denise/stat.h>
 #include "selection.h"
@@ -20,7 +21,12 @@ namespace gwsb
 
       public:
 
+         Histogram_1D
+         histogram;
+
          Group ();
+
+         
 
    };
 
@@ -84,17 +90,17 @@ namespace gwsb
          dtime;
 
          Wind
-         gradient_wind;
+         wind_925;
 
          Real
-         gradient_temperature;
+         temperature_925;
 
          Wind
          wind;
 
          Record (const Dtime& dtime,
-                 const Wind& gradient_wind,
-                 const Real gradient_temperature,
+                 const Wind& wind_925,
+                 const Real temperature_925,
                  const Wind& wind);
 
          bool
@@ -115,13 +121,13 @@ namespace gwsb
                feed (Wind_Rose& wind_rose) const;
 
                Sample*
-               get_gradient_temperature_sample_ptr () const;
+               get_temperature_925_sample_ptr () const;
 
                void
                render_scatter_plot (const RefPtr<Context>& cr,
                                     const Transform_2D& transform,
                                     const Real dir_scatter,
-                                    const Groups& groups) const;
+                                    Groups& groups) const;
 
          };
 
@@ -174,7 +180,7 @@ namespace gwsb
                              const Integer day_of_year_threshold,
                              const Integer hour,
                              const Integer hour_threshold,
-                             const Wind& gradient_wind,
+                             const Wind& wind_925,
                              const Real threshold = 2.5) const;
 
    };

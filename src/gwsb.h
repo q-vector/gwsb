@@ -107,7 +107,7 @@ namespace gwsb
          Data
          data;
 
-         Nwp_Gw::Sequence::Map
+         Predictor::Sequence::Map
          sequence_map;
 
          Wind_Disc&
@@ -137,13 +137,13 @@ namespace gwsb
          void
          render_histogram (const RefPtr<Context>& cr,
                            const set<Record>& record_set,
-                           const Nwp_Gw& nwp_gw) const;
+                           const Predictor& predictor) const;
 
       public:
 
          Gwsb (Gtk::Window* window_ptr,
                const Size_2D& size_2d,
-               const Nwp_Gw::Sequence::Map& sequence_map,
+               const Predictor::Sequence::Map& sequence_map,
                const Data& data,
                Wind_Disc& wind_disc);
 

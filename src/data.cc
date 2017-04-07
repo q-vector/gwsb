@@ -6,6 +6,7 @@ using namespace denise;
 using namespace gwsb;
 
 Group::Group ()
+   : histogram (1, 0.5)
 {
 }
 
@@ -126,12 +127,12 @@ Groups::cairo (const RefPtr<Context>& cr) const
 
 
 Record::Record (const Dtime& dtime,
-                const Wind& gradient_wind,
-                const Real gradient_temperature,
+                const Wind& wind_925,
+                const Real temperature_925,
                 const Wind& wind)
    : dtime (dtime),
-     gradient_wind (gradient_wind),
-     gradient_temperature (gradient_temperature),
+     wind_925 (wind_925),
+     temperature_925 (temperature_925),
      wind (wind)
 {
 }
@@ -161,10 +162,10 @@ Record::Set::feed (Wind_Rose& wind_rose) const
 }
 
 Sample*
-Record::Set::get_gradient_temperature_sample_ptr () const
+Record::Set::get_temperature_925_sample_ptr () const
 {
    Tuple tuple;
-   for (const Record& r : *this) { tuple.push_back (r.gradient_temperature); }
+   for (const Record& r : *this) { tuple.push_back (r.temperature_925); }
    return new Sample (tuple);
 }
 
@@ -172,15 +173,15 @@ void
 Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
                                   const Transform_2D& transform,
                                   const Real dir_scatter,
-                                  const Groups& groups) const
+                                  Groups& groups) const
 {
 
    const Real scatter_ring_size = 8;
    const Integer n = size ();
-   const Real alpha = bound (50.0 / n, 0.30, 0.04);
+   const Real alpha = bound (50.0 / n, 0.45, 0.15);
    const Ring ring (scatter_ring_size);
 
-   const Sample* sample_ptr = get_gradient_temperature_sample_ptr ();
+   const Sample* sample_ptr = get_temperature_925_sample_ptr ();
    const Real mean = sample_ptr->get_mean ();
    const Real sd = sample_ptr->get_sd ();
    const Real min_temp = mean - 2 * sd;
@@ -197,7 +198,7 @@ Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
    for (const Record& record : *this)
    {
 
-      const Real gt_residual = record.gradient_temperature - mean;
+      const Real gt_residual = record.temperature_925 - mean;
       const Wind& wind = record.wind;
       const Real multiplier = 0.51444444;
       const Real speed = wind.get_speed () / multiplier;
@@ -207,6 +208,7 @@ Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
       const Integer i = groups.get_index (
          transform.transform (Point_2D (wind.get_direction (), speed)));
       const Color& color = (i<0 ? Color::gray (0.5, alpha) : Color (i, alpha));
+      if (i >= 0) { groups.at (i)->histogram.increment (record.temperature_925); }
 
       const Real r = random (dir_scatter, -dir_scatter);
       const Real direction = wind.get_direction () + r;
@@ -216,7 +218,7 @@ Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
       color.cairo (cr);
       cr->fill ();
 
-      const Wind& gw = record.gradient_wind;
+      const Wind& gw = record.wind_925;
       const Real d_gw = gw.get_direction ();
       const Real s_gw = gw.get_speed () / multiplier;
       const Point_2D p_gw = transform.transform (Point_2D (d_gw, s_gw));
@@ -306,18 +308,18 @@ Station_Data::read (const Dstring& file_path)
 
       const Dtime& dtime (tokens[0]);
 
-      const Real gw_direction = stof (tokens[1]);
-      const Real gw_speed = stof (tokens[2]);
-      const Real gradient_temperature = stof (tokens[3]);
+      const Real direction_925 = stof (tokens[1]);
+      const Real speed_925 = stof (tokens[2]);
+      const Real temperature_925 = stof (tokens[3]);
       const Real direction = stof (tokens[4]);
       const Real speed = stof (tokens[5]);
 
-      const Wind& gwind = Wind::direction_speed (gw_direction, gw_speed);
+      const Wind& wind_925 = Wind::direction_speed (direction_925, speed_925);
       const Wind& wind = Wind::direction_speed (direction, speed);
 
       const Integer j = stoi (dtime.get_string ("%j"));
       const Integer h = stoi (dtime.get_string ("%H"));
-      const Record record (dtime, gwind, gradient_temperature, wind);
+      const Record record (dtime, wind_925, temperature_925, wind);
 
       add (j, h, record);
 
@@ -332,7 +334,7 @@ Station_Data::get_record_set_ptr (const Integer day_of_year,
                                   const Integer day_of_year_threshold,
                                   const Integer hour,
                                   const Integer hour_threshold,
-                                  const Wind& gradient_wind,
+                                  const Wind& wind_925,
                                   const Real threshold) const
 {
 
@@ -364,8 +366,8 @@ Station_Data::get_record_set_ptr (const Integer day_of_year,
 
          for (const Record& record : hourly)
          {
-            const Wind& difference = gradient_wind - record.gradient_wind;
-            const bool match = gradient_wind.is_naw () ||
+            const Wind& difference = wind_925 - record.wind_925;
+            const bool match = wind_925.is_naw () ||
                                gsl_isnan (threshold) ||
                                (difference.get_speed () < threshold);
             if (match) { record_set_ptr->insert (record); }

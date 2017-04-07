@@ -123,7 +123,7 @@ Gwsb::Histogram::render_image_buffer (const RefPtr<Context>& cr)
 
    for (const Record& record : *record_set_ptr)
    {
-      histogram_1d.increment (record.gradient_temperature);
+      histogram_1d.increment (record.temperature_925);
    }
 
    Color::white ().cairo (cr);
@@ -219,7 +219,7 @@ Gwsb::render_bg (const RefPtr<Context>& cr)
 void
 Gwsb::render_histogram (const RefPtr<Context>& cr,
                         const set<Record>& record_set,
-                        const Nwp_Gw& nwp_gw) const
+                        const Predictor& predictor) const
 {
 
    Histogram_1D histogram_1d (1, 0.5);
@@ -235,7 +235,7 @@ Gwsb::render_histogram (const RefPtr<Context>& cr,
       const Real d = wind.get_direction ();
       const Real s = wind.get_speed () / 0.51444444;
       const Point_2D& p = t.transform (Point_2D (d, s));
-      histogram_1d.increment (record.gradient_temperature);
+      histogram_1d.increment (record.temperature_925);
    }
 
    if (histogram_1d.size () == 0) { return; }
@@ -263,30 +263,20 @@ Gwsb::render_histogram (const RefPtr<Context>& cr,
    {
 
       const Group& group = groups.get_group (i);
-      Histogram_1D histogram_1d (1, 0.5);
-
-      for (const Record& record : record_set)
-      {
-         const Wind& wind = record.wind;
-         const Real d = wind.get_direction ();
-         const Real s = wind.get_speed () / 0.51444444;
-         const Point_2D& p = t.transform (Point_2D (d, s));
-         if (!group.contains (p)) { continue; }
-         histogram_1d.increment (record.gradient_temperature);
-      }
+      const Histogram_1D& histogram = group.histogram;
 
       if (histogram_1d.size () > 0)
       {
          cr->save ();
          cr->set_line_width (3);
          Color (i, 0.8).cairo (cr);
-         histogram_1d.render_outline (cr, transform);
+         histogram.render_outline (cr, transform);
          cr->restore ();
       }
 
       {
          const Integer dj = (i + 1) * 15;
-         const Integer count = histogram_1d.get_number_of_points ();
+         const Integer count = histogram.get_number_of_points ();
          const Dstring& str = Dstring::render (fmt, count);
          Label label (str, anchor + Point_2D (0, dj), 'l', 't');
          label.cairo (cr, Color (i, 0.9), Color (i, 0.5), Point_2D (-3, 3));
@@ -295,8 +285,8 @@ Gwsb::render_histogram (const RefPtr<Context>& cr,
 
    }
 
-   const Point_2D& t_p = transform.transform (Point_2D (0, nwp_gw.temperature));
-   const Dstring& t_str = Dstring::render ("%.1f\u00b0 C \u2192", nwp_gw.temperature);
+   const Point_2D& t_p = transform.transform (Point_2D (0, predictor.temperature_925));
+   const Dstring& t_str = Dstring::render ("%.1f\u00b0 C \u2192", predictor.temperature_925);
    Color::black ().cairo (cr);
    Label (t_str, t_p + Point_2D (-20, 0), 'r', 'c').cairo (cr);
 
@@ -304,7 +294,7 @@ Gwsb::render_histogram (const RefPtr<Context>& cr,
 
 Gwsb::Gwsb (Gtk::Window* window_ptr,
             const Size_2D& size_2d,
-            const Nwp_Gw::Sequence::Map& sequence_map,
+            const Predictor::Sequence::Map& sequence_map,
             const Data& data,
             Wind_Disc& wind_disc)
    : Dcanvas (*window_ptr),
@@ -461,7 +451,7 @@ void
 Gwsb::set_station (const Dstring& station)
 {
    this->station = station;
-   const Nwp_Gw::Sequence& sequence = sequence_map.at (station);
+   const Predictor::Sequence& sequence = sequence_map.at (station);
    const set<Dtime>& time_set = sequence.get_time_set ();
    const Time_Chooser::Shape time_chooser_shape (time_set);
    time_chooser.set_shape (time_chooser_shape);
@@ -473,15 +463,15 @@ Gwsb::get_record_set_ptr ()
 {
 
    const Dtime& dtime = time_chooser.get_time ();
-   const Nwp_Gw::Sequence& sequence = sequence_map.at (station);
-   const Nwp_Gw& nwp_gw = sequence.at (dtime);
+   const Predictor::Sequence& sequence = sequence_map.at (station);
+   const Predictor& predictor = sequence.at (dtime);
    const Integer day_of_year = stoi (dtime.get_string ("%j"));
    const Integer hour = stoi (dtime.get_string ("%H"));
 
    Station_Data& station_data = data.get_station_data (station);
 
    return station_data.get_record_set_ptr (day_of_year, 15,
-      hour, 0, nwp_gw, gradient_wind_threshold);
+      hour, 0, predictor.wind_925, gradient_wind_threshold);
 
 }
 
@@ -646,9 +636,9 @@ Gwsb::render_image_buffer (const RefPtr<Context>& cr)
    const bool outline = (option_panel.with_outline ());
    const Real with_noise = option_panel.with_noise ();
 
-   const Nwp_Gw::Sequence& sequence = sequence_map.at (station);
+   const Predictor::Sequence& sequence = sequence_map.at (station);
    const Dtime& dtime = time_chooser.get_time ();
-   const Nwp_Gw& nwp_gw = sequence.at (dtime);
+   const Predictor& predictor = sequence.at (dtime);
 
    const Dstring& month_str = dtime.get_string ("%b");
    const Dstring& hour_str = dtime.get_string ("%HZ");
@@ -667,17 +657,20 @@ Gwsb::render_image_buffer (const RefPtr<Context>& cr)
    const Real hue = 0.33;
    const Real dir_noise = (with_noise ? 5 : 0);
    wind_disc.render_bg (cr);
+
+   for (Group* group_ptr : groups) { group_ptr->histogram.clear (); }
    record_set_ptr->render_scatter_plot (cr, t, dir_noise, groups);
+
    if (outline) { wind_disc.render_percentage_d (cr, hue); }
    wind_disc.render_percentages (cr);
 
-   render_histogram (cr, *record_set_ptr, nwp_gw);
+   render_histogram (cr, *record_set_ptr, predictor);
 
-   // render nwp_gw
+   // render predictor
    {
 
-      const Real direction = nwp_gw.get_direction ();
-      const Real speed = nwp_gw.get_speed () / 0.5144444;
+      const Real direction = predictor.wind_925.get_direction ();
+      const Real speed = predictor.wind_925.get_speed () / 0.5144444;
       const Ring ring (t.get_length (gradient_wind_threshold / 0.5144444));
       const Point_2D p = t.transform (Point_2D (direction, speed));
 
