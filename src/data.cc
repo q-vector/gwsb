@@ -5,35 +5,35 @@ using namespace std;
 using namespace denise;
 using namespace gwsb;
 
-Group::Group ()
+Cluster::Cluster ()
    : histogram (1, 0.5)
 {
 }
 
-Groups::Groups ()
+Clusters::Clusters ()
    : defining (-1)
 {
 }
 
-Groups::~Groups ()
+Clusters::~Clusters ()
 {
    clear ();
 }
 
 bool
-Groups::is_defining () const
+Clusters::is_defining () const
 {
    return (defining >= 0);
 }
 
 Integer
-Groups::get_index (const Point_2D& point) const
+Clusters::get_index (const Point_2D& point) const
 {
 
    for (Integer i = 0; i < size (); i++)
    {
-      const Group& group = get_group (i);
-      const bool b = group.contains (point);
+      const Cluster& cluster = get_cluster (i);
+      const bool b = cluster.contains (point);
       if (b) { return i; }
    }
 
@@ -41,56 +41,56 @@ Groups::get_index (const Point_2D& point) const
 
 }
 
-Group&
-Groups::get_group (const Integer index)
+Cluster&
+Clusters::get_cluster (const Integer index)
 {
    return *at (index);
 }
 
-const Group&
-Groups::get_group (const Integer index) const
+const Cluster&
+Clusters::get_cluster (const Integer index) const
 {
    return *at (index);
 }
 
-Group&
-Groups::get_group (const Point_2D& point)
+Cluster&
+Clusters::get_cluster (const Point_2D& point)
 {
    const Integer i = get_index (point);
-   if (i < 0) { throw Exception ("No matching group."); }
-   return get_group (i);
+   if (i < 0) { throw Exception ("No matching cluster."); }
+   return get_cluster (i);
 }
 
-const Group&
-Groups::get_group (const Point_2D& point) const
+const Cluster&
+Clusters::get_cluster (const Point_2D& point) const
 {
    const Integer i = get_index (point);
-   if (i < 0) { throw Exception ("No matching group."); }
-   return get_group (i);
+   if (i < 0) { throw Exception ("No matching cluster."); }
+   return get_cluster (i);
 }
 
-Group&
-Groups::get_defining_group ()
+Cluster&
+Clusters::get_defining_cluster ()
 {
    return *at (defining);
 }
 
-const Group&
-Groups::get_defining_group (const Integer index) const
+const Cluster&
+Clusters::get_defining_cluster (const Integer index) const
 {
    return *at (defining);
 }
 
 void
-Groups::add (const Point_2D& point,
-             const Integer index)
+Clusters::add (const Point_2D& point,
+               const Integer index)
 {
    this->defining = (index < 0 ? size () : index);
-   get_group (defining).add (point);
+   get_cluster (defining).add (point);
 }
 
 void
-Groups::remove (const Integer index)
+Clusters::remove (const Integer index)
 {
    const Integer i = (index < 0 ? defining : index);
    if (i < 0 || i > size () - 1) { return; }
@@ -99,15 +99,35 @@ Groups::remove (const Integer index)
 }
 
 void
-Groups::clear ()
+Clusters::clear ()
 {
-   for (Group* group_ptr : *this) { delete group_ptr; }
-   vector<Group*>::clear ();
+   for (Cluster* cluster_ptr : *this) { delete cluster_ptr; }
+   vector<Cluster*>::clear ();
    defining = -1;
 }
 
 void
-Groups::cairo (const RefPtr<Context>& cr) const
+Clusters::render (const RefPtr<Context>& cr,
+                  const Real alpha) const
+{
+
+   cr->save ();
+   cr->set_line_width (6);
+   Dashes ("2:10").cairo (cr);
+
+   for (Integer i = 0; i < size (); i++)
+   {
+      Color (i, alpha).cairo (cr);
+      at (i)->cairo (cr);
+      cr->stroke ();
+   }
+
+   cr->restore ();
+
+}
+
+void
+Clusters::render_defining (const RefPtr<Context>& cr) const
 {
 
    if (defining < 0) { return; }
@@ -116,15 +136,14 @@ Groups::cairo (const RefPtr<Context>& cr) const
    cr->set_line_width (6);
    Dashes ("2:10").cairo (cr);
 
-   const Group& group = get_group (defining);
+   const Cluster& cluster = get_cluster (defining);
    Color (defining).cairo (cr);
-   group.cairo (cr);
+   cluster.cairo (cr);
    cr->stroke ();
 
    cr->restore ();
 
 }
-
 
 Record::Record (const Dtime& dtime,
                 const Wind& wind_925,
@@ -173,12 +192,12 @@ void
 Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
                                   const Transform_2D& transform,
                                   const Real dir_scatter,
-                                  Groups& groups) const
+                                  Clusters& clusters) const
 {
 
    const Real scatter_ring_size = 8;
    const Integer n = size ();
-   const Real alpha = bound (50.0 / n, 0.45, 0.15);
+   const Real alpha = bound (50.0 / n, 0.45, 0.05);
    const Ring ring (scatter_ring_size);
 
    const Sample* sample_ptr = get_temperature_925_sample_ptr ();
@@ -205,10 +224,13 @@ Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
 
       if (wind.is_naw ()) { continue; }
 
-      const Integer i = groups.get_index (
+      const Integer i = clusters.get_index (
          transform.transform (Point_2D (wind.get_direction (), speed)));
       const Color& color = (i<0 ? Color::gray (0.5, alpha) : Color (i, alpha));
-      if (i >= 0) { groups.at (i)->histogram.increment (record.temperature_925); }
+      if (i >= 0)
+      {
+         clusters.at (i)->histogram.increment (record.temperature_925);
+      }
 
       const Real r = random (dir_scatter, -dir_scatter);
       const Real direction = wind.get_direction () + r;
@@ -398,11 +420,11 @@ Data::survey ()
 }
 
 Data::Data (const Dstring& data_path,
-            const Dstring& station_string)
-   : data_path (data_path)
+            const Tokens& station_tokens)
+   : data_path (data_path),
+     station_tokens (station_tokens)
 {
-   if (station_string.size () == 0) { survey (); }
-   else { station_tokens = Tokens (station_string, ":"); }
+   if (station_tokens.size () == 0) { survey (); }
 }
 
 const Tokens&

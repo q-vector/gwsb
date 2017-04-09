@@ -4,41 +4,11 @@ using namespace std;
 using namespace denise;
 using namespace gwsb;
 
-Predictor::Predictor (const Dstring& station,
-                      const Dtime& base_time,
-                      const Real forecast_hour,
-                      const Wind& wind_925,
+Predictor::Predictor (const Wind& wind_925,
                       const Real temperature_925)
-   : station (station),
-     base_time (base_time),
-     forecast_hour (forecast_hour),
-     wind_925 (wind_925),
+   : wind_925 (wind_925),
      temperature_925 (temperature_925)
 {
-}
-
-Dtime
-Predictor::get_time () const
-{
-   return Dtime (base_time.t + forecast_hour);
-}
-
-bool
-Predictor::operator == (const Predictor& predictor) const
-{
-   return (get_time () == predictor.get_time ());
-}
-
-bool
-Predictor::operator > (const Predictor& predictor) const
-{
-   return (get_time () > predictor.get_time ());
-}
-
-bool
-Predictor::operator < (const Predictor& predictor) const
-{
-   return (get_time () < predictor.get_time ());
 }
 
 const set<Dtime>&
@@ -48,9 +18,9 @@ Predictor::Sequence::get_time_set () const
 }
 
 void
-Predictor::Sequence::ingest (const Predictor& predictor)
+Predictor::Sequence::ingest (const Dtime& dtime,
+                             const Predictor& predictor)
 {
-   const Dtime& dtime = predictor.get_time ();
    time_set.insert (dtime);
    map<Dtime, Predictor>::insert (make_pair (dtime, predictor));
 }
@@ -87,11 +57,11 @@ Predictor::Sequence::Map::ingest (const Dstring& sequence_file_path)
       const Dtime base_time (yyyy, mm, dd, hh);
 
       station = tokens[2];
-      const Real u = stof (tokens[3]) * multiplier;
-      const Real v = stof (tokens[4]) * multiplier;
-      const Wind gw (u, v);
+      const Real u_925 = stof (tokens[3]) * multiplier;
+      const Real v_925 = stof (tokens[4]) * multiplier;
+      const Wind wind_925 (u_925, v_925);
 
-      const Real t = stof (tokens[5]);
+      const Real t_925 = stof (tokens[5]);
 
       if (station != this_station)
       {
@@ -100,7 +70,8 @@ Predictor::Sequence::Map::ingest (const Dstring& sequence_file_path)
          this_station = station;
       }
   
-      at (station).ingest (Predictor (station, base_time, forecast_hour, gw, t));
+      const Dtime dtime (base_time.t + forecast_hour);
+      at (station).ingest (dtime, Predictor (wind_925, t_925));
 
    }
 

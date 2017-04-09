@@ -21,38 +21,14 @@ namespace gwsb
 
       public:
 
-         Dstring
-         station;
-
-         Dtime
-         base_time;
-
-         Real
-         forecast_hour;
-
          Wind
          wind_925;
 
          Real
          temperature_925;
 
-         Predictor (const Dstring& station,
-                    const Dtime& base_time,
-                    const Real forecast_hour,
-                    const Wind& wind_925,
+         Predictor (const Wind& wind_925,
                     const Real temperature_925);
-
-         Dtime
-         get_time () const;
-
-         bool
-         operator == (const Predictor& predictor) const;
-         
-         bool
-         operator > (const Predictor& predictor) const;
-         
-         bool
-         operator < (const Predictor& predictor) const;
 
          void
          render (const RefPtr<Context>& cr,
@@ -72,7 +48,8 @@ namespace gwsb
                get_time_set () const;
 
                void
-               ingest (const Predictor& predictor);
+               ingest (const Dtime& dtime,
+                       const Predictor& predictor);
 
                class Map : public map <Dstring, Sequence>
                {

@@ -16,7 +16,7 @@ namespace gwsb
 
    class Criteria;
 
-   class Group : public denise::Polygon
+   class Cluster : public denise::Polygon
    {
 
       public:
@@ -24,13 +24,13 @@ namespace gwsb
          Histogram_1D
          histogram;
 
-         Group ();
+         Cluster ();
 
          
 
    };
 
-   class Groups : public vector<Group*>
+   class Clusters : public vector<Cluster*>
    {
 
       public:
@@ -38,9 +38,9 @@ namespace gwsb
          Integer
          defining;
 
-         Groups ();
+         Clusters ();
 
-         ~Groups ();
+         ~Clusters ();
 
          bool
          is_defining () const;
@@ -48,23 +48,23 @@ namespace gwsb
          Integer
          get_index (const Point_2D& point) const;
 
-         Group&
-         get_group (const Integer index);
+         Cluster&
+         get_cluster (const Integer index);
 
-         const Group&
-         get_group (const Integer index) const;
+         const Cluster&
+         get_cluster (const Integer index) const;
 
-         Group&
-         get_group (const Point_2D& point);
+         Cluster&
+         get_cluster (const Point_2D& point);
 
-         const Group&
-         get_group (const Point_2D& point) const;
+         const Cluster&
+         get_cluster (const Point_2D& point) const;
 
-         Group&
-         get_defining_group ();
+         Cluster&
+         get_defining_cluster ();
 
-         const Group&
-         get_defining_group (const Integer index) const;
+         const Cluster&
+         get_defining_cluster (const Integer index) const;
 
          void
          add (const Point_2D& point,
@@ -77,7 +77,11 @@ namespace gwsb
          clear ();
 
          void
-         cairo (const RefPtr<Context>& cr) const;
+         render (const RefPtr<Context>& cr,
+                 const Real alpha) const;
+
+         void
+         render_defining (const RefPtr<Context>& cr) const;
 
    };
 
@@ -127,7 +131,7 @@ namespace gwsb
                render_scatter_plot (const RefPtr<Context>& cr,
                                     const Transform_2D& transform,
                                     const Real dir_scatter,
-                                    Groups& groups) const;
+                                    Clusters& clusters) const;
 
          };
 
@@ -202,7 +206,7 @@ namespace gwsb
       public:
 
          Data (const Dstring& data_path,
-               const Dstring& station_string);
+               const Tokens& station_tokens);
 
          const Tokens&
          get_station_tokens () const;

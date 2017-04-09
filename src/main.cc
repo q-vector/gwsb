@@ -32,7 +32,7 @@ main (int argc,
       const string data_path = getenv ("GWSB_DATA");
 
       bool command_line = false;
-      string station_string;
+      Tokens station_tokens;
       Size_2D size_2d (1000, 800);
       Integer number_of_directions = 16;
       Tuple threshold_tuple ("2:5:10:15:20:25:30:35");
@@ -96,8 +96,10 @@ main (int argc,
 
             case 's':
             {
-               if (station_string.size () != 0) { station_string += ":"; }
-               station_string += Dstring (optarg);
+               for (const Dstring& token : Tokens (Dstring (optarg), ":"))
+               {
+                  station_tokens.push_back (token);
+               }
                break;
             }
 
@@ -125,8 +127,7 @@ main (int argc,
 
       const Real size = size_2d.j / 2.4;
       const Point_2D origin (size_2d.i * 0.5, size_2d.j * 0.5);
-      cout << origin << endl;
-      Data data (data_path, station_string);
+      Data data (data_path, station_tokens);
       Wind_Disc wind_disc (number_of_directions, threshold_tuple,
          origin, size * 0.2, speed_label_tuple, max_speed);
 
@@ -143,10 +144,11 @@ main (int argc,
          window.resize (size_2d.i, size_2d.j);
          window.set_title ("gwsb");
 
-         Gwsb gwsb (window_ptr, size_2d, sequence_map, data, wind_disc);
+         Gwsb_Sequence gwsb_sequence (window_ptr, size_2d,
+            sequence_map, data, wind_disc);
 
-         window.add (gwsb);
-         gwsb.show ();
+         window.add (gwsb_sequence);
+         gwsb_sequence.show ();
 
          Gtk::Main::run (window);
 
@@ -157,6 +159,23 @@ main (int argc,
       }
       else
       {
+
+         Gtk::Main gtk_main (argc, argv);
+
+         Gtk::Window* window_ptr = new Gtk::Window ();
+         Gtk::Window& window = *window_ptr;
+         window.set_resizable (false);
+         window.resize (size_2d.i, size_2d.j);
+         window.set_title ("gwsb");
+
+         Gwsb_Free gwsb_free (window_ptr, size_2d,
+            station_tokens, data, wind_disc);
+
+         window.add (gwsb_free);
+         gwsb_free.show ();
+
+         Gtk::Main::run (window);
+
       }
 
    }
