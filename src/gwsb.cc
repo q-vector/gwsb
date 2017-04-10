@@ -814,9 +814,9 @@ Gwsb_Free::Gwsb_Free (Gtk::Window* window_ptr,
 {
 
    set<Dtime> time_set;
-   for (Integer j = 0; j <= 365; j++)
+   for (Integer j = 0; j < 365; j++)
    {
-      const Dtime epoch (1984, 1, 1);
+      const Dtime epoch (1970, 1, 1);
       time_set.insert (epoch.t + j * 24);
    }
    const Time_Chooser::Shape time_chooser_shape (time_set);
@@ -854,12 +854,26 @@ Gwsb_Free::on_mouse_button_pressed (const Dmouse_Button_Event& event)
    if (Gwsb::on_mouse_button_pressed (event)) { return true; }
    const Point_2D& point = event.point;
 
-   if (event.type == GDK_2BUTTON_PRESS)
+   const Wind_Disc::Transform& transform = wind_disc.get_transform ();
+   const Wind& w = transform.get_wind (point);
+   const bool no_wind_925 = predictor.wind_925.is_naw ();
+   const Real difference = (w - predictor.wind_925).get_speed ();
+   const bool near_wind_925 = (difference <= wind_925_threshold);
+   const bool double_click = (event.type == GDK_2BUTTON_PRESS);
+
+   if (near_wind_925 || (no_wind_925 && double_click))
    {
       defining_predictor = true;
-      const Transform_2D& transform = wind_disc.get_transform ();
       const Point_2D& w = transform.reverse (point);
       predictor.wind_925 = Wind::direction_speed (w.x, w.y * 0.514444);
+      render_queue_draw ();
+      return true;
+   }
+   else
+   if (!no_wind && !near_wind_925 && double_click)
+   {
+      defining_predictor = false;
+      predictor.wind_925 = Wind (GSL_NAN, GSL_NAN);
       render_queue_draw ();
       return true;
    }
