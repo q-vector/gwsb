@@ -229,6 +229,8 @@ Gwsb::render_histogram (const RefPtr<Context>& cr,
    const Index_2D index_2d (width - 40 - size_2d.i, 120);
    const Box_2D box_2d (index_2d, size_2d);
 
+   Tuple temperature_925_tuple;
+
    for (const Record& record : record_set)
    {
       const Wind& wind = record.wind;
@@ -237,9 +239,11 @@ Gwsb::render_histogram (const RefPtr<Context>& cr,
       const Transform_2D& transform = wind_disc.get_transform ();
       const Point_2D& p = transform.transform (Point_2D (d, s));
       histogram_1d.increment (record.temperature_925);
+      temperature_925_tuple.push_back (record.temperature_925);
    }
 
-   if (histogram_1d.size () == 0) { return; }
+   const Integer count = histogram_1d.get_number_of_points ();
+   if (count == 0) { return; }
 
    const denise::Histogram::Axis& axis = histogram_1d.get_axis ();
    const Domain_1D domain_x (*axis.begin () - 0.8, *axis.rbegin () + 0.8);
@@ -249,11 +253,10 @@ Gwsb::render_histogram (const RefPtr<Context>& cr,
    histogram_1d.render (cr, transform, "%.0f", "%.0f",
       Color::gray (0.5), Color::black (), Color::black ());
 
-   const Integer count = histogram_1d.get_number_of_points ();
    const Dstring fmt (count == 1 ? "%d point" : "%d points");
    const Dstring& str = Dstring::render (fmt, count);
-   const Color& color_fg = Color::gray (0.2, 0.7);
-   const Color& color_bg = Color::gray (0.8, 0.9);
+   const Color& color_fg = Color::gray (0.2, 0.9);
+   const Color& color_bg = Color::gray (0.8, 0.3);
 
    const Point_2D& anchor = Point_2D (width - 50 - size_2d.i, 120 + 260 + 10);
    cr->set_font_size (12);
@@ -265,23 +268,24 @@ Gwsb::render_histogram (const RefPtr<Context>& cr,
    {
 
       const Cluster& cluster = clusters.get_cluster (i);
-      const Histogram_1D& histogram = cluster.histogram;
+      const Histogram_1D& h = cluster.histogram;
 
-      if (histogram_1d.size () > 0)
+      if (count > 0)
       {
          cr->save ();
          cr->set_line_width (3);
          Color (i, 0.8).cairo (cr);
-         histogram.render_outline (cr, transform);
+         h.render_outline (cr, transform);
          cr->restore ();
       }
 
       {
-         const Integer dj = (i + 1) * 15;
-         const Integer count = histogram.get_number_of_points ();
-         const Dstring& str = Dstring::render (fmt, count);
-         Label label (str, anchor + Point_2D (0, dj), 'l', 't');
-         label.cairo (cr, Color (i, 0.9), Color (i, 0.5), Point_2D (-3, 3));
+         const Integer d_i = (i + 1) * 15;
+         const Integer n_i = h.get_number_of_points ();
+         const Real p = cluster.probability * 100;
+         const Dstring& str = Dstring::render (fmt + " %.2f%%", n_i, p);
+         Label label (str, anchor + Point_2D (0, d_i), 'l', 't');
+         label.cairo (cr, Color (i, 0.9), Color (i, 0.3), Point_2D (-3, 3));
       }
 
    }
@@ -328,6 +332,7 @@ Gwsb::render (const RefPtr<Context>& cr,
 
    for (Cluster* cluster_ptr : clusters) { cluster_ptr->histogram.clear (); }
    record_set_ptr->render_scatter_plot (cr, t, dir_noise, clusters);
+   clusters.cluster_analysis (*record_set_ptr, t, predictor);
 
    if (with_outline) { wind_disc.render_percentage_d (cr, hue); }
    if (with_percentages) { wind_disc.render_percentages (cr); }
@@ -870,7 +875,7 @@ Gwsb_Free::on_mouse_button_pressed (const Dmouse_Button_Event& event)
       return true;
    }
    else
-   if (!no_wind && !near_wind_925 && double_click)
+   if (!no_wind_925 && !near_wind_925 && double_click)
    {
       defining_predictor = false;
       predictor.wind_925 = Wind (GSL_NAN, GSL_NAN);

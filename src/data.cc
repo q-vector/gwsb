@@ -1,149 +1,10 @@
 #include "data.h"
 #include "gwsb.h"
+#include "gw.h"
 
 using namespace std;
 using namespace denise;
 using namespace gwsb;
-
-Cluster::Cluster ()
-   : histogram (1, 0.5)
-{
-}
-
-Clusters::Clusters ()
-   : defining (-1)
-{
-}
-
-Clusters::~Clusters ()
-{
-   clear ();
-}
-
-bool
-Clusters::is_defining () const
-{
-   return (defining >= 0);
-}
-
-Integer
-Clusters::get_index (const Point_2D& point) const
-{
-
-   for (Integer i = 0; i < size (); i++)
-   {
-      const Cluster& cluster = get_cluster (i);
-      const bool b = cluster.contains (point);
-      if (b) { return i; }
-   }
-
-   return -1;
-
-}
-
-Cluster&
-Clusters::get_cluster (const Integer index)
-{
-   return *at (index);
-}
-
-const Cluster&
-Clusters::get_cluster (const Integer index) const
-{
-   return *at (index);
-}
-
-Cluster&
-Clusters::get_cluster (const Point_2D& point)
-{
-   const Integer i = get_index (point);
-   if (i < 0) { throw Exception ("No matching cluster."); }
-   return get_cluster (i);
-}
-
-const Cluster&
-Clusters::get_cluster (const Point_2D& point) const
-{
-   const Integer i = get_index (point);
-   if (i < 0) { throw Exception ("No matching cluster."); }
-   return get_cluster (i);
-}
-
-Cluster&
-Clusters::get_defining_cluster ()
-{
-   return *at (defining);
-}
-
-const Cluster&
-Clusters::get_defining_cluster (const Integer index) const
-{
-   return *at (defining);
-}
-
-void
-Clusters::add (const Point_2D& point,
-               const Integer index)
-{
-   this->defining = (index < 0 ? size () : index);
-   get_cluster (defining).add (point);
-}
-
-void
-Clusters::remove (const Integer index)
-{
-   const Integer i = (index < 0 ? defining : index);
-   if (i < 0 || i > size () - 1) { return; }
-   erase (begin () + i);
-   if (i == defining) { defining = -1; }
-}
-
-void
-Clusters::clear ()
-{
-   for (Cluster* cluster_ptr : *this) { delete cluster_ptr; }
-   vector<Cluster*>::clear ();
-   defining = -1;
-}
-
-void
-Clusters::render (const RefPtr<Context>& cr,
-                  const Real alpha) const
-{
-
-   cr->save ();
-   cr->set_line_width (6);
-   Dashes ("2:10").cairo (cr);
-
-   for (Integer i = 0; i < size (); i++)
-   {
-      Color (i, alpha).cairo (cr);
-      at (i)->cairo (cr);
-      cr->stroke ();
-   }
-
-   cr->restore ();
-
-}
-
-void
-Clusters::render_defining (const RefPtr<Context>& cr) const
-{
-
-   if (defining < 0) { return; }
-
-   cr->save ();
-   cr->set_line_width (6);
-   Dashes ("2:10").cairo (cr);
-
-   const Cluster& cluster = get_cluster (defining);
-   Color (defining).cairo (cr);
-   cluster.cairo (cr);
-   cr->stroke ();
-
-   cr->restore ();
-
-}
 
 Record::Record (const Dtime& dtime,
                 const Wind& wind_925,
@@ -192,7 +53,7 @@ void
 Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
                                   const Transform_2D& transform,
                                   const Real dir_scatter,
-                                  Clusters& clusters) const
+                                  const Clusters& clusters) const
 {
 
    const Real scatter_ring_size = 8;
@@ -217,7 +78,6 @@ Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
    for (const Record& record : *this)
    {
 
-      const Real gt_residual = record.temperature_925 - mean;
       const Wind& wind = record.wind;
       const Real multiplier = 0.51444444;
       const Real speed = wind.get_speed () / multiplier;
@@ -227,10 +87,6 @@ Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
       const Integer i = clusters.get_index (
          transform.transform (Point_2D (wind.get_direction (), speed)));
       const Color& color = (i<0 ? Color::gray (0.5, alpha) : Color (i, alpha));
-      if (i >= 0)
-      {
-         clusters.at (i)->histogram.increment (record.temperature_925);
-      }
 
       const Real r = random (dir_scatter, -dir_scatter);
       const Real direction = wind.get_direction () + r;
@@ -455,6 +311,231 @@ Data::get_station_data (const Dstring& station)
       sd.read (file_path);
       return sd;
 
+   }
+
+}
+
+Cluster::Cluster ()
+   : histogram (1, 0.5)
+{
+}
+
+Gaussian_Distribution
+Cluster::get_gaussian_distribution () const
+{
+   const Sample sample (tuple);
+   const Real mean = sample.get_mean ();
+   const Real variance = sample.get_variance ();
+   return Gaussian_Distribution (mean, variance);
+}
+
+Clusters::Clusters ()
+   : defining (-1)
+{
+}
+
+Clusters::~Clusters ()
+{
+   clear ();
+}
+
+bool
+Clusters::is_defining () const
+{
+   return (defining >= 0);
+}
+
+Integer
+Clusters::get_index (const Point_2D& point) const
+{
+
+   for (Integer i = 0; i < size (); i++)
+   {
+      const Cluster& cluster = get_cluster (i);
+      const bool b = cluster.contains (point);
+      if (b) { return i; }
+   }
+
+   return -1;
+
+}
+
+Cluster&
+Clusters::get_cluster (const Integer index)
+{
+   return *at (index);
+}
+
+const Cluster&
+Clusters::get_cluster (const Integer index) const
+{
+   return *at (index);
+}
+
+Cluster&
+Clusters::get_cluster (const Point_2D& point)
+{
+   const Integer i = get_index (point);
+   if (i < 0) { throw Exception ("No matching cluster."); }
+   return get_cluster (i);
+}
+
+const Cluster&
+Clusters::get_cluster (const Point_2D& point) const
+{
+   const Integer i = get_index (point);
+   if (i < 0) { throw Exception ("No matching cluster."); }
+   return get_cluster (i);
+}
+
+Cluster&
+Clusters::get_defining_cluster ()
+{
+   return *at (defining);
+}
+
+const Cluster&
+Clusters::get_defining_cluster (const Integer index) const
+{
+   return *at (defining);
+}
+
+void
+Clusters::add (const Point_2D& point,
+               const Integer index)
+{
+   this->defining = (index < 0 ? size () : index);
+   get_cluster (defining).add (point);
+}
+
+void
+Clusters::remove (const Integer index)
+{
+   const Integer i = (index < 0 ? defining : index);
+   if (i < 0 || i > size () - 1) { return; }
+   erase (begin () + i);
+   if (i == defining) { defining = -1; }
+}
+
+void
+Clusters::clear ()
+{
+   for (Cluster* cluster_ptr : *this) { delete cluster_ptr; }
+   vector<Cluster*>::clear ();
+   defining = -1;
+}
+
+void
+Clusters::render (const RefPtr<Context>& cr,
+                  const Real alpha) const
+{
+
+   cr->save ();
+   cr->set_line_width (6);
+   Dashes ("2:10").cairo (cr);
+
+   for (Integer i = 0; i < size (); i++)
+   {
+      Color (i, alpha).cairo (cr);
+      at (i)->cairo (cr);
+      cr->stroke ();
+   }
+
+   cr->restore ();
+
+}
+
+void
+Clusters::render_defining (const RefPtr<Context>& cr) const
+{
+
+   if (defining < 0) { return; }
+
+   cr->save ();
+   cr->set_line_width (6);
+   Dashes ("2:10").cairo (cr);
+
+   const Cluster& cluster = get_cluster (defining);
+   Color (defining).cairo (cr);
+   cluster.cairo (cr);
+   cr->stroke ();
+
+   cr->restore ();
+
+}
+
+void
+Clusters::cluster_analysis (const Record::Set& record_set,
+                            const Transform_2D& transform,
+                            const Predictor& predictor)
+{
+
+   Cluster cluster_rest;
+   const Integer n = record_set.size ();
+
+   for (Integer i = 0; i < size (); i++)
+   {
+      Cluster& cluster = *(at (i));
+      cluster.tuple.clear ();
+   }
+
+   for (const Record& record : record_set)
+   {
+
+      const Wind& wind = record.wind;
+      const Real multiplier = 0.51444444;
+      const Real speed = wind.get_speed () / multiplier;
+
+      if (wind.is_naw ()) { continue; }
+
+      const Integer i = get_index (
+         transform.transform (Point_2D (wind.get_direction (), speed)));
+
+      if (i < 0)
+      {
+         cluster_rest.histogram.increment (record.temperature_925);
+         cluster_rest.tuple.push_back (record.temperature_925);
+      }
+      else
+      {
+         Cluster& cluster = *(at (i));
+         cluster.histogram.increment (record.temperature_925);
+         cluster.tuple.push_back (record.temperature_925);
+      }
+
+   }
+
+   const Gaussian_Distribution& gd = cluster_rest.get_gaussian_distribution ();
+   const Real likelihood = gd.get_P (predictor.temperature_925 + 0.5) ;
+                           - gd.get_P (predictor.temperature_925 - 0.5);
+   const Real share = Real (cluster_rest.tuple.size ()) / Real (n);
+   const Real term = (likelihood * share);
+   Real denominator = (cluster_rest.tuple.size () > 0 ? term : 0);
+cout << "prob rest " << denominator << endl;
+
+   for (Integer j = 0; j < size (); j++)
+   {
+      const Cluster& cluster = *(at (j));
+      const Gaussian_Distribution& gd = cluster.get_gaussian_distribution ();
+      const Real likelihood = gd.get_P (predictor.temperature_925 + 0.5) ;
+                              - gd.get_P (predictor.temperature_925 - 0.5);
+      const Real share = Real (cluster.tuple.size ()) / Real (n);
+      const Real term = (likelihood * share);
+      denominator += (cluster.tuple.size () > 0 ? term : 0);
+cout << "denominator j " << j << " " << (likelihood * share) << " " << likelihood << " " << share << " | " << cluster.tuple.size () << " " << n << endl;
+   }
+
+cout << "denominator " << denominator << endl;
+   for (Integer i = 0; i < size (); i++)
+   {
+      Cluster& cluster = *(at (i));
+      const Gaussian_Distribution &gd = cluster.get_gaussian_distribution ();
+      const Real likelihood = gd.get_P (predictor.temperature_925 + 0.5) ;
+                              - gd.get_P (predictor.temperature_925 - 0.5);
+      const Real share = Real (cluster.tuple.size ()) / Real (n);
+      const Real term = (likelihood * share);
+      cluster.probability = term / denominator;
+cout << "Cluster " << i << " " << cluster.probability << endl;
    }
 
 }

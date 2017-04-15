@@ -15,75 +15,8 @@ namespace gwsb
 {
 
    class Criteria;
-
-   class Cluster : public denise::Polygon
-   {
-
-      public:
-
-         Histogram_1D
-         histogram;
-
-         Cluster ();
-
-         
-
-   };
-
-   class Clusters : public vector<Cluster*>
-   {
-
-      public:
-
-         Integer
-         defining;
-
-         Clusters ();
-
-         ~Clusters ();
-
-         bool
-         is_defining () const;
-
-         Integer
-         get_index (const Point_2D& point) const;
-
-         Cluster&
-         get_cluster (const Integer index);
-
-         const Cluster&
-         get_cluster (const Integer index) const;
-
-         Cluster&
-         get_cluster (const Point_2D& point);
-
-         const Cluster&
-         get_cluster (const Point_2D& point) const;
-
-         Cluster&
-         get_defining_cluster ();
-
-         const Cluster&
-         get_defining_cluster (const Integer index) const;
-
-         void
-         add (const Point_2D& point,
-              const Integer index = -1);
-
-         void
-         remove (const Integer index = -1);
-
-         void
-         clear ();
-
-         void
-         render (const RefPtr<Context>& cr,
-                 const Real alpha) const;
-
-         void
-         render_defining (const RefPtr<Context>& cr) const;
-
-   };
+   class Clusters;
+   class Predictor;
 
    class Record
    {
@@ -131,7 +64,7 @@ namespace gwsb
                render_scatter_plot (const RefPtr<Context>& cr,
                                     const Transform_2D& transform,
                                     const Real dir_scatter,
-                                    Clusters& clusters) const;
+                                    const Clusters& clusters) const;
 
          };
 
@@ -213,6 +146,87 @@ namespace gwsb
 
          Station_Data&
          get_station_data (const Dstring& station);
+
+   };
+
+   class Cluster : public denise::Polygon
+   {
+
+      public:
+
+         Tuple
+         tuple;
+
+         Histogram_1D
+         histogram;
+
+         Real
+         probability;
+
+         Cluster ();
+
+         Gaussian_Distribution
+         get_gaussian_distribution () const;
+
+   };
+
+   class Clusters : public vector<Cluster*>
+   {
+
+      public:
+
+         Integer
+         defining;
+
+         Clusters ();
+
+         ~Clusters ();
+
+         bool
+         is_defining () const;
+
+         Integer
+         get_index (const Point_2D& point) const;
+
+         Cluster&
+         get_cluster (const Integer index);
+
+         const Cluster&
+         get_cluster (const Integer index) const;
+
+         Cluster&
+         get_cluster (const Point_2D& point);
+
+         const Cluster&
+         get_cluster (const Point_2D& point) const;
+
+         Cluster&
+         get_defining_cluster ();
+
+         const Cluster&
+         get_defining_cluster (const Integer index) const;
+
+         void
+         add (const Point_2D& point,
+              const Integer index = -1);
+
+         void
+         remove (const Integer index = -1);
+
+         void
+         clear ();
+
+         void
+         render (const RefPtr<Context>& cr,
+                 const Real alpha) const;
+
+         void
+         render_defining (const RefPtr<Context>& cr) const;
+
+         void
+         cluster_analysis (const Record::Set& record_set,
+                           const Transform_2D& transform,
+                           const Predictor& predictor);
 
    };
 
