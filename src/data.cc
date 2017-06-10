@@ -1,6 +1,6 @@
 #include "data.h"
 #include "gwsb.h"
-#include "gw.h"
+#include "predictor.h"
 
 using namespace std;
 using namespace denise;
@@ -47,70 +47,6 @@ Record::Set::get_temperature_925_sample_ptr () const
    Tuple tuple;
    for (const Record& r : *this) { tuple.push_back (r.temperature_925); }
    return new Sample (tuple);
-}
-
-void
-Record::Set::render_scatter_plot (const RefPtr<Context>& cr,
-                                  const Transform_2D& transform,
-                                  const Real dir_scatter,
-                                  const Clusters& clusters) const
-{
-
-   const Real scatter_ring_size = 8;
-   const Integer n = size ();
-   const Real alpha = bound (50.0 / n, 0.45, 0.05);
-   const Ring ring (scatter_ring_size);
-
-   const Sample* sample_ptr = get_temperature_925_sample_ptr ();
-   const Real mean = sample_ptr->get_mean ();
-   const Real sd = sample_ptr->get_sd ();
-   const Real min_temp = mean - 2 * sd;
-   const Real max_temp = mean + 2 * sd;
-   const Real delta_temp = max_temp - min_temp;
-   delete sample_ptr;
-
-   srand (0);
-
-   cr->save ();
-   cr->set_line_width (0.5);
-   Dashes ("1:2").cairo (cr);
-
-   for (const Record& record : *this)
-   {
-
-      const Wind& wind = record.wind;
-      const Real multiplier = 0.51444444;
-      const Real speed = wind.get_speed () / multiplier;
-
-      if (wind.is_naw ()) { continue; }
-
-      const Integer i = clusters.get_index (
-         transform.transform (Point_2D (wind.get_direction (), speed)));
-      const Color& color = (i<0 ? Color::gray (0.5, alpha) : Color (i, alpha));
-
-      const Real r = random (dir_scatter, -dir_scatter);
-      const Real direction = wind.get_direction () + r;
-      const Point_2D p = transform.transform (Point_2D (direction, speed));
-
-      ring.cairo (cr, p);
-      color.cairo (cr);
-      cr->fill ();
-
-      const Wind& gw = record.wind_925;
-      const Real d_gw = gw.get_direction ();
-      const Real s_gw = gw.get_speed () / multiplier;
-      const Point_2D p_gw = transform.transform (Point_2D (d_gw, s_gw));
-      Label ("G", p_gw, 'c', 'c').cairo (cr);
-
-      cr->save ();
-      Edge (p, p_gw).cairo (cr);
-      cr->stroke ();
-      cr->restore ();
-
-   }
-
-   cr->restore ();
-
 }
 
 Record::Daily::Daily ()
@@ -316,7 +252,8 @@ Data::get_station_data (const Dstring& station)
 }
 
 Cluster::Cluster ()
-   : histogram (1, 0.5)
+   : histogram (1, 0.5),
+     mean_wind (GSL_NAN, GSL_NAN)
 {
 }
 
@@ -327,6 +264,17 @@ Cluster::get_gaussian_distribution () const
    const Real mean = sample.get_mean ();
    const Real variance = sample.get_variance ();
    return Gaussian_Distribution (mean, variance);
+}
+
+Real
+Cluster::get_likelihood (const Real temperature_925,
+                         const Integer n) const
+{
+   if (tuple.size () < 2) { return 0; }
+   const Gaussian_Distribution& gd = get_gaussian_distribution ();
+   const Real pdf = gd.get_pdf (temperature_925);
+   const Real share = Real (tuple.size ()) / Real (n);
+   return pdf * share;
 }
 
 Clusters::Clusters ()
@@ -426,6 +374,17 @@ Clusters::clear ()
 }
 
 void
+Clusters::reset ()
+{
+   for (Cluster* cluster_ptr : *this)
+   {
+      Cluster& cluster = *cluster_ptr;
+      cluster.tuple.clear ();
+      cluster.mean_wind = Wind (GSL_NAN, GSL_NAN);
+   }
+}
+
+void
 Clusters::render (const RefPtr<Context>& cr,
                   const Real alpha) const
 {
@@ -470,15 +429,11 @@ Clusters::cluster_analysis (const Record::Set& record_set,
                             const Predictor& predictor)
 {
 
+   reset ();
+
    Cluster cluster_rest;
-   const Integer n = record_set.size ();
 
-   for (Integer i = 0; i < size (); i++)
-   {
-      Cluster& cluster = *(at (i));
-      cluster.tuple.clear ();
-   }
-
+   // fill clusters and cluster_rest
    for (const Record& record : record_set)
    {
 
@@ -499,43 +454,29 @@ Clusters::cluster_analysis (const Record::Set& record_set,
       else
       {
          Cluster& cluster = *(at (i));
+         const Integer n = cluster.tuple.size ();
          cluster.histogram.increment (record.temperature_925);
          cluster.tuple.push_back (record.temperature_925);
+         if (n == 0) { cluster.mean_wind = wind; }
+         else { cluster.mean_wind = ((cluster.mean_wind * n) + wind) / (n+1); }
       }
 
    }
 
-   const Gaussian_Distribution& gd = cluster_rest.get_gaussian_distribution ();
-   const Real likelihood = gd.get_P (predictor.temperature_925 + 0.5) ;
-                           - gd.get_P (predictor.temperature_925 - 0.5);
-   const Real share = Real (cluster_rest.tuple.size ()) / Real (n);
-   const Real term = (likelihood * share);
-   Real denominator = (cluster_rest.tuple.size () > 0 ? term : 0);
-cout << "prob rest " << denominator << endl;
+   const Integer n = record_set.size ();
+   Real denominator = cluster_rest.get_likelihood (predictor.temperature_925, n);
 
    for (Integer j = 0; j < size (); j++)
    {
       const Cluster& cluster = *(at (j));
-      const Gaussian_Distribution& gd = cluster.get_gaussian_distribution ();
-      const Real likelihood = gd.get_P (predictor.temperature_925 + 0.5) ;
-                              - gd.get_P (predictor.temperature_925 - 0.5);
-      const Real share = Real (cluster.tuple.size ()) / Real (n);
-      const Real term = (likelihood * share);
-      denominator += (cluster.tuple.size () > 0 ? term : 0);
-cout << "denominator j " << j << " " << (likelihood * share) << " " << likelihood << " " << share << " | " << cluster.tuple.size () << " " << n << endl;
+      denominator += cluster.get_likelihood (predictor.temperature_925, n);
    }
 
-cout << "denominator " << denominator << endl;
    for (Integer i = 0; i < size (); i++)
    {
       Cluster& cluster = *(at (i));
-      const Gaussian_Distribution &gd = cluster.get_gaussian_distribution ();
-      const Real likelihood = gd.get_P (predictor.temperature_925 + 0.5) ;
-                              - gd.get_P (predictor.temperature_925 - 0.5);
-      const Real share = Real (cluster.tuple.size ()) / Real (n);
-      const Real term = (likelihood * share);
-      cluster.probability = term / denominator;
-cout << "Cluster " << i << " " << cluster.probability << endl;
+      cluster.probability =
+         cluster.get_likelihood (predictor.temperature_925, n) / denominator;
    }
 
 }

@@ -7,7 +7,7 @@
 #include <denise/histogram.h>
 #include <denise/met.h>
 #include <denise/stat.h>
-#include "selection.h"
+//#include "selection.h"
 
 using namespace std;
 
@@ -59,12 +59,6 @@ namespace gwsb
 
                Sample*
                get_temperature_925_sample_ptr () const;
-
-               void
-               render_scatter_plot (const RefPtr<Context>& cr,
-                                    const Transform_2D& transform,
-                                    const Real dir_scatter,
-                                    const Clusters& clusters) const;
 
          };
 
@@ -163,11 +157,18 @@ namespace gwsb
          Real
          probability;
 
+         Wind
+         mean_wind;
+
          Cluster ();
 
          Gaussian_Distribution
          get_gaussian_distribution () const;
 
+         Real
+         get_likelihood (const Real temperature_925,
+                         const Integer n) const;
+         
    };
 
    class Clusters : public vector<Cluster*>
@@ -215,6 +216,9 @@ namespace gwsb
 
          void
          clear ();
+
+         void
+         reset ();
 
          void
          render (const RefPtr<Context>& cr,

@@ -4,9 +4,9 @@
 #include <iostream>
 #include <denise/gtkmm.h>
 #include <denise/met.h>
-#include "selection.h"
+//#include "selection.h"
 #include "data.h"
-#include "gw.h"
+#include "predictor.h"
 
 namespace gwsb
 {
@@ -133,16 +133,35 @@ namespace gwsb
          Time_Chooser
          time_chooser;
 
+         Predictor::Sequence::Map
+         sequence_map;
+
          Real
          wind_925_threshold;
+
+         Predictor
+         predictor;
+
+         bool
+         defining_predictor;
 
          virtual void
          pack ();
 
          void
          render_histogram (const RefPtr<Context>& cr,
-                           const set<Record>& record_set,
+                           const Record::Set& record_set,
                            const Predictor& predictor) const;
+
+         void
+         render_scatter_plot (const RefPtr<Context>& cr,
+                              const Record::Set& record_set,
+                              const Real dir_scatter) const;
+
+         void
+         render_predictor (const RefPtr<Context>& cr,
+                           const Predictor& predictor,
+                           const bool faint) const;
 
          void
          render (const RefPtr<Context>& cr,
@@ -154,7 +173,7 @@ namespace gwsb
 
          Gwsb (Gtk::Window* window_ptr,
                const Size_2D& size_2d,
-               const Tokens& station_tokens,
+               const Predictor::Sequence::Map& sequence_map,
                const Data& data,
                Wind_Disc& wind_disc);
 
@@ -170,7 +189,7 @@ namespace gwsb
          save (const Dstring& file_path);
 
          virtual void
-         set_station (const Dstring& station) = 0;
+         set_station (const Dstring& station);
 
          virtual Record::Set*
          get_record_set_ptr (const Dtime& dtime,
@@ -192,80 +211,16 @@ namespace gwsb
          on_mouse_scroll (const Dmouse_Scroll_Event& event);
 
          virtual void
+         update_predictor ();
+
+         void
+         render_image_buffer (const RefPtr<Context>& cr);
+
+         virtual void
          render_background_buffer (const RefPtr<Context>& cr);
 
          virtual void
          clear_clusters ();
-
-   };
-
-   class Gwsb_Sequence : public Gwsb
-   {
-
-      protected:
-
-         Predictor::Sequence::Map
-         sequence_map;
-
-      public:
-
-         Gwsb_Sequence (Gtk::Window* window_ptr,
-                        const Size_2D& size_2d,
-                        const Predictor::Sequence::Map& sequence_map,
-                        const Data& data,
-                        Wind_Disc& wind_disc);
-
-         ~Gwsb_Sequence ();
-
-         void
-         set_station (const Dstring& station);
-
-         Record::Set*
-         get_record_set_ptr ();
-
-         void
-         render_image_buffer (const RefPtr<Context>& cr);
-
-   };
-
-   class Gwsb_Free : public Gwsb
-   {
-
-      protected:
-
-         Predictor
-         predictor;
-
-         bool
-         defining_predictor;
-
-      public:
-
-         Gwsb_Free (Gtk::Window* window_ptr,
-                    const Size_2D& size_2d,
-                    const Tokens& station_tokens,
-                    const Data& data,
-                    Wind_Disc& wind_disc);
-
-         ~Gwsb_Free ();
-
-         void
-         set_station (const Dstring& station);
-
-         Record::Set*
-         get_record_set_ptr ();
-
-         bool
-         on_mouse_button_pressed (const Dmouse_Button_Event& event);
-
-         bool
-         on_mouse_motion (const Dmouse_Motion_Event& event);
-
-         bool
-         on_mouse_button_released (const Dmouse_Button_Event& event);
-
-         void
-         render_image_buffer (const RefPtr<Context>& cr);
 
    };
 

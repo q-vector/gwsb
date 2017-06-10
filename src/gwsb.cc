@@ -52,18 +52,9 @@ Option_Panel::Option_Panel (Gwsb& gwsb)
      save_button (gwsb, "Save", 12)
 {
 
-   day_of_year_threshold_button.add_token ("5 days");
-   day_of_year_threshold_button.add_token ("10 days");
-   day_of_year_threshold_button.add_token ("15 days");
-   day_of_year_threshold_button.add_token ("30 days");
-   day_of_year_threshold_button.add_token ("45 days");
-   day_of_year_threshold_button.add_token ("60 days");
-   day_of_year_threshold_button.add_token ("90 days");
-
-   hour_threshold_button.add_token ("0 hr");
-   hour_threshold_button.add_token ("1 hr");
-   hour_threshold_button.add_token ("2 hr");
-   hour_threshold_button.add_token ("3 hr");
+   const Dstring s ("5 days:10 days:*15 days:30 days:45 days:60 days:90 days");
+   day_of_year_threshold_button.add_tokens (Tokens (s, ":"));
+   hour_threshold_button.add_tokens (Tokens ("0 hr:1 hr:2 hr:3 hr", ":"));
 
    day_of_year_threshold_button.get_update_signal ().connect (
       sigc::mem_fun (gwsb, &Gwsb::render_queue_draw));
@@ -219,7 +210,7 @@ Gwsb::pack ()
 
 void
 Gwsb::render_histogram (const RefPtr<Context>& cr,
-                        const set<Record>& record_set,
+                        const Record::Set& record_set,
                         const Predictor& predictor) const
 {
 
@@ -293,11 +284,106 @@ Gwsb::render_histogram (const RefPtr<Context>& cr,
    if (!gsl_isnan (predictor.temperature_925))
    {
       const Real t_925 = predictor.temperature_925;
-      const Point_2D& t_p = transform.transform (Point_2D (0, t_925));
+      const Real t = bound (t_925, domain_x.end, domain_x.start);
+      const Point_2D& t_p = transform.transform (Point_2D (0, t));
       const Dstring& t_str = Dstring::render ("%.1f\u00b0 C \u2192", t_925);
       Color::black ().cairo (cr);
       Label (t_str, t_p + Point_2D (-20, 0), 'r', 'c').cairo (cr);
    }
+
+}
+
+void
+Gwsb::render_scatter_plot (const RefPtr<Context>& cr,
+                           const Record::Set& record_set,
+                           const Real dir_scatter) const
+{
+
+   const Wind_Disc::Transform& t = wind_disc.get_transform ();
+
+   const Real scatter_ring_size = 8;
+   const Integer n = record_set.size ();
+   const Real alpha = bound (50.0 / n, 0.45, 0.05);
+   const Ring ring (scatter_ring_size);
+
+   const Sample* sample_ptr = record_set.get_temperature_925_sample_ptr ();
+   const Real mean = sample_ptr->get_mean ();
+   const Real sd = sample_ptr->get_sd ();
+   const Real min_temp = mean - 2 * sd;
+   const Real max_temp = mean + 2 * sd;
+   const Real delta_temp = max_temp - min_temp;
+   delete sample_ptr;
+
+   srand (0);
+
+   cr->save ();
+   cr->set_line_width (0.5);
+   Dashes ("1:2").cairo (cr);
+
+   for (const Record& record : record_set)
+   {
+
+      const Wind& wind = record.wind;
+      const Real multiplier = 0.51444444;
+      const Real speed = wind.get_speed () / multiplier;
+
+      if (wind.is_naw ()) { continue; }
+
+      const Integer i = clusters.get_index (
+         t.transform (Point_2D (wind.get_direction (), speed)));
+      const Color& color = (i<0 ? Color::gray (0.5, alpha) : Color (i, alpha));
+
+      const Real r = random (dir_scatter, -dir_scatter);
+      const Real direction = wind.get_direction () + r;
+      const Point_2D p = t.transform (Point_2D (direction, speed));
+
+      ring.cairo (cr, p);
+      color.cairo (cr);
+      cr->fill ();
+
+      const Wind& gw = record.wind_925;
+      const Real d_gw = gw.get_direction ();
+      const Real s_gw = gw.get_speed () / multiplier;
+      const Point_2D p_gw = t.transform (Point_2D (d_gw, s_gw));
+      Label ("G", p_gw, 'c', 'c').cairo (cr);
+
+      cr->save ();
+      Edge (p, p_gw).cairo (cr);
+      cr->stroke ();
+      cr->restore ();
+
+   }
+
+   cr->restore ();
+
+
+}
+
+void
+Gwsb::render_predictor (const RefPtr<Context>& cr,
+                        const Predictor& predictor,
+                        const bool faint) const
+{
+
+   const Wind_Disc::Transform& t = wind_disc.get_transform ();
+   const Real direction = predictor.wind_925.get_direction ();
+   const Real speed = predictor.wind_925.get_speed () / 0.5144444;
+   const Ring ring (t.get_length (wind_925_threshold / 0.5144444));
+   const Point_2D p = t.transform (Point_2D (direction, speed));
+
+   const Color& color_ring = faint ? Color::red (0.5) : Color::black (0.1);
+   const Color& color_icon = faint ? Color::red (0.8) : Color::black (0.1);
+   const Color& color_shadow = faint ? Color::red (0.3) : Color::black (0.05);
+
+   cr->save ();
+   cr->set_line_width (4);
+   cr->set_font_size (24);
+   color_ring.cairo (cr);
+   ring.cairo (cr, p);
+   cr->stroke ();
+
+   Label ("G", p, 'c', 'c').cairo (cr, color_icon, color_shadow, Point_2D (2, 2));
+   cr->restore ();
 
 }
 
@@ -327,38 +413,40 @@ Gwsb::render (const RefPtr<Context>& cr,
    record_set_ptr->feed (wind_disc);
 
    const Real hue = 0.33;
-   const Real dir_noise = (with_noise ? 5 : 0);
+   const Real dir_scatter = (with_noise ? 5 : 0);
    wind_disc.render_bg (cr);
 
    for (Cluster* cluster_ptr : clusters) { cluster_ptr->histogram.clear (); }
-   record_set_ptr->render_scatter_plot (cr, t, dir_noise, clusters);
    clusters.cluster_analysis (*record_set_ptr, t, predictor);
+   render_scatter_plot (cr, *record_set_ptr, dir_scatter);
+
+   for (Integer i = 0; i < clusters.size (); i++)
+   {
+      const Cluster& cluster = *(clusters.at (i));
+      const Wind& mean_wind = cluster.mean_wind;
+      const Real direction = mean_wind.get_direction ();
+      const Real speed = mean_wind.get_speed () / 0.5144444;
+      const Point_2D p = t.transform (Point_2D (direction, speed));
+      cr->save ();
+      Star (10).cairo (cr, p);
+      Color (i, 0.8).cairo (cr);
+      cr->fill_preserve ();
+      Color::black ().cairo (cr);
+      cr->stroke ();
+      cr->restore ();
+   }
 
    if (with_outline) { wind_disc.render_percentage_d (cr, hue); }
    if (with_percentages) { wind_disc.render_percentages (cr); }
 
    render_histogram (cr, *record_set_ptr, predictor);
 
-   // render predictor
    {
-
-      const Real direction = predictor.wind_925.get_direction ();
-      const Real speed = predictor.wind_925.get_speed () / 0.5144444;
-      const Ring ring (t.get_length (wind_925_threshold / 0.5144444));
-      const Point_2D p = t.transform (Point_2D (direction, speed));
-
-      cr->save ();
-      cr->set_line_width (4);
-      cr->set_font_size (24);
-      Color::black (0.4).cairo (cr);
-      ring.cairo (cr, p);
-      cr->stroke ();
-
-      Label ("G", p, 'c', 'c').cairo (cr, Color::black (0.6),
-         Color::black (0.3), Point_2D (2, 2));
-      cr->restore ();
-
+      const Predictor::Sequence& sequence = sequence_map.at (station);
+      const Dtime& dtime = time_chooser.get_time ();
+      render_predictor (cr, sequence.at (dtime), false);
    }
+   render_predictor (cr, predictor, true);
 
    if (with_cluster) { clusters.render (cr, 0.4); }
    clusters.render_defining (cr);
@@ -389,19 +477,26 @@ Gwsb::render (const RefPtr<Context>& cr,
 
 Gwsb::Gwsb (Gtk::Window* window_ptr,
             const Size_2D& size_2d,
-            const Tokens& station_tokens,
+            const Predictor::Sequence::Map& sequence_map,
             const Data& data,
             Wind_Disc& wind_disc)
    : Dcanvas (*window_ptr),
      wind_disc (wind_disc),
      window_ptr (window_ptr),
-     station_panel (*this, station_tokens, 0, 6),
+     station_panel (*this, sequence_map.get_station_tokens (), 0, 6),
      option_panel (*this),
      time_chooser (*this, 12),
-     station (station_tokens.front ()),
+     sequence_map (sequence_map),
+     station (sequence_map.get_station_tokens ().front ()),
      data (data),
-     wind_925_threshold (5 * 0.514444)
+     wind_925_threshold (5 * 0.514444),
+     predictor (Wind (GSL_NAN, GSL_NAN), GSL_NAN),
+     defining_predictor (false)
 {
+
+   // Snipplet Hint for year_round
+   //time_chooser.set_year_round ();
+   //set_station (station_tokens.front ());
 
    Gdk::EventMask event_mask = (Gdk::SCROLL_MASK);
    event_mask |= (Gdk::POINTER_MOTION_MASK);
@@ -414,7 +509,7 @@ Gwsb::Gwsb (Gtk::Window* window_ptr,
    set_can_focus ();
 
    time_chooser.get_signal ().connect (sigc::mem_fun (
-      *this, &Gwsb_Sequence::render_queue_draw));
+      *this, &Gwsb::update_predictor));
 
    register_widget (station_panel);
    register_widget (option_panel);
@@ -422,6 +517,8 @@ Gwsb::Gwsb (Gtk::Window* window_ptr,
 
    set_preferred_size (size_2d.i, size_2d.j);
    being_packed (Point_2D (0, 0), size_2d.i, size_2d.j);
+
+   set_station (sequence_map.get_station_tokens ().front ());
 
    pack ();
 
@@ -534,10 +631,16 @@ Gwsb::save (const Dstring& file_path)
 
 }
 
-//void
-//Gwsb::set_station (const Dstring& station)
-//{
-//}
+void
+Gwsb::set_station (const Dstring& station)
+{
+   this->station = station;
+   const Predictor::Sequence& sequence = sequence_map.at (station);
+   const set<Dtime>& time_set = sequence.get_time_set ();
+   const Time_Chooser::Shape time_chooser_shape (time_set);
+   time_chooser.set_shape (time_chooser_shape);
+   update_predictor ();
+}
 
 Record::Set*
 Gwsb::get_record_set_ptr (const Dtime& dtime,
@@ -630,7 +733,67 @@ Gwsb::on_mouse_button_pressed (const Dmouse_Button_Event& event)
    if (Dcontainer::on_mouse_button_pressed (event)) { return true; }
    const Point_2D& point = event.point;
 
-   if (event.type == GDK_3BUTTON_PRESS)
+   const Wind_Disc::Transform& transform = wind_disc.get_transform ();
+   const Wind& w = transform.get_wind (point);
+   const bool no_wind_925 = predictor.wind_925.is_naw ();
+   const Real difference = (w - predictor.wind_925).get_speed ();
+   const bool near_wind_925 = (difference <= wind_925_threshold);
+   const bool double_click = (event.type == GDK_2BUTTON_PRESS);
+   const bool triple_click = (event.type == GDK_3BUTTON_PRESS);
+
+   //if (near_wind_925 || (no_wind_925 && double_click))
+   if (near_wind_925)
+   {
+
+      if (double_click)
+      {
+         defining_predictor = false;
+         const Predictor::Sequence& sequence = sequence_map.at (station);
+         const Dtime& dtime = time_chooser.get_time ();
+         this->predictor = sequence.at (dtime);
+         render_queue_draw ();
+         return true;
+      }
+      else
+      {
+         defining_predictor = true;
+         const Point_2D& w = transform.reverse (point);
+         predictor.wind_925 = Wind::direction_speed (w.x, w.y * 0.514444);
+         render_queue_draw ();
+         return true;
+      }
+
+   }
+
+   // set no predictor
+   if (false)
+   //if (!no_wind_925 && !near_wind_925 && double_click)
+   {
+      defining_predictor = false;
+      predictor.wind_925 = Wind (GSL_NAN, GSL_NAN);
+      render_queue_draw ();
+      return true;
+   }
+
+   if (event.control () && double_click)
+   {
+      if (!near_wind_925)
+      {
+         wind_925_threshold = 5 * 0.514444;
+         render_queue_draw ();
+         return true;
+      }
+   } 
+
+   // cout cursor point
+   if (false)
+   {
+      const Wind_Disc::Transform& t = wind_disc.get_transform ();
+      const Wind& wind = t.get_wind (point);
+      cout << wind.get_string ("%03.0f/%02.1f") << endl;
+   }
+
+   if (triple_click)
    {
       clear_clusters ();
       return true;
@@ -656,6 +819,15 @@ Gwsb::on_mouse_motion (const Dmouse_Motion_Event& event)
    if (Dcontainer::on_mouse_motion (event)) { return true; }
    const Point_2D& point = event.point;
 
+   if (defining_predictor)
+   {
+      const Transform_2D& transform = wind_disc.get_transform ();
+      const Point_2D& w = transform.reverse (point);
+      predictor.wind_925 = Wind::direction_speed (w.x, w.y * 0.514444);
+      render_queue_draw ();
+      return true;
+   }
+
    if (clusters.is_defining ())
    {
       clusters.get_cluster (clusters.defining).add (point);
@@ -673,6 +845,12 @@ Gwsb::on_mouse_button_released (const Dmouse_Button_Event& event)
 
    if (Dcontainer::on_mouse_button_released (event)) { return true; }
    const Point_2D& point = event.point;
+
+   if (defining_predictor)
+   {
+      defining_predictor = false;
+      return true;
+   }
 
    if (clusters.is_defining ())
    {
@@ -728,6 +906,22 @@ Gwsb::on_mouse_scroll (const Dmouse_Scroll_Event& event)
 }
 
 void
+Gwsb::update_predictor ()
+{
+   const Predictor::Sequence& sequence = sequence_map.at (station);
+   const Dtime& dtime = time_chooser.get_time ();
+   this->predictor = sequence.at (dtime);
+   render_queue_draw ();
+}
+
+void
+Gwsb::render_image_buffer (const RefPtr<Context>& cr)
+{
+   const Dtime& dtime = time_chooser.get_time ();
+   render (cr, dtime, predictor);
+}
+
+void
 Gwsb::render_background_buffer (const RefPtr<Context>& cr)
 {
 
@@ -752,185 +946,5 @@ Gwsb::clear_clusters ()
 {
    clusters.clear ();
    render_queue_draw ();
-}
-
-Gwsb_Sequence::Gwsb_Sequence (Gtk::Window* window_ptr,
-                              const Size_2D& size_2d,
-                              const Predictor::Sequence::Map& sequence_map,
-                              const Data& data,
-                              Wind_Disc& wind_disc)
-   : Gwsb (window_ptr,
-           size_2d,
-           sequence_map.get_station_tokens (),
-           data,
-           wind_disc),
-     sequence_map (sequence_map)
-{
-   set_station (sequence_map.get_station_tokens ().front ());
-}
-
-Gwsb_Sequence::~Gwsb_Sequence ()
-{
-}
-
-void
-Gwsb_Sequence::set_station (const Dstring& station)
-{
-   this->station = station;
-   const Predictor::Sequence& sequence = sequence_map.at (station);
-   const set<Dtime>& time_set = sequence.get_time_set ();
-   const Time_Chooser::Shape time_chooser_shape (time_set);
-   time_chooser.set_shape (time_chooser_shape);
-   render_queue_draw ();
-}
-
-Record::Set*
-Gwsb_Sequence::get_record_set_ptr ()
-{
-
-   const Dtime& dtime = time_chooser.get_time ();
-   const Predictor::Sequence& sequence = sequence_map.at (station);
-   const Predictor& predictor = sequence.at (dtime);
-
-   return Gwsb::get_record_set_ptr (dtime, predictor);
-
-}
-
-void
-Gwsb_Sequence::render_image_buffer (const RefPtr<Context>& cr)
-{
-
-   const Predictor::Sequence& sequence = sequence_map.at (station);
-   const Dtime& dtime = time_chooser.get_time ();
-   const Predictor& predictor = sequence.at (dtime);
-
-   render (cr, dtime, predictor);
-
-}
-
-Gwsb_Free::Gwsb_Free (Gtk::Window* window_ptr,
-                    const Size_2D& size_2d,
-                    const Tokens& station_tokens,
-                    const Data& data,
-                    Wind_Disc& wind_disc)
-   : Gwsb (window_ptr, size_2d, station_tokens, data, wind_disc),
-     predictor (Wind (GSL_NAN, GSL_NAN), GSL_NAN),
-     defining_predictor (false)
-{
-
-   set<Dtime> time_set;
-   for (Integer j = 0; j < 365; j++)
-   {
-      const Dtime epoch (1970, 1, 1);
-      time_set.insert (epoch.t + j * 24);
-   }
-   const Time_Chooser::Shape time_chooser_shape (time_set);
-   time_chooser.set_shape (time_chooser_shape);
-
-   set_station (station_tokens.front ());
-
-}
-
-Gwsb_Free::~Gwsb_Free ()
-{
-}
-
-void
-Gwsb_Free::set_station (const Dstring& station)
-{
-   this->station = station;
-   render_queue_draw ();
-}
-
-Record::Set*
-Gwsb_Free::get_record_set_ptr ()
-{
-
-   const Dtime& dtime = time_chooser.get_time ();
-
-   return Gwsb::get_record_set_ptr (dtime, predictor);
-
-}
-
-bool
-Gwsb_Free::on_mouse_button_pressed (const Dmouse_Button_Event& event)
-{
-
-   if (Gwsb::on_mouse_button_pressed (event)) { return true; }
-   const Point_2D& point = event.point;
-
-   const Wind_Disc::Transform& transform = wind_disc.get_transform ();
-   const Wind& w = transform.get_wind (point);
-   const bool no_wind_925 = predictor.wind_925.is_naw ();
-   const Real difference = (w - predictor.wind_925).get_speed ();
-   const bool near_wind_925 = (difference <= wind_925_threshold);
-   const bool double_click = (event.type == GDK_2BUTTON_PRESS);
-
-   if (near_wind_925 || (no_wind_925 && double_click))
-   {
-      defining_predictor = true;
-      const Point_2D& w = transform.reverse (point);
-      predictor.wind_925 = Wind::direction_speed (w.x, w.y * 0.514444);
-      render_queue_draw ();
-      return true;
-   }
-   else
-   if (!no_wind_925 && !near_wind_925 && double_click)
-   {
-      defining_predictor = false;
-      predictor.wind_925 = Wind (GSL_NAN, GSL_NAN);
-      render_queue_draw ();
-      return true;
-   }
-
-   return false;
-
-}
-
-bool
-Gwsb_Free::on_mouse_motion (const Dmouse_Motion_Event& event)
-{
-
-   if (Gwsb::on_mouse_motion (event)) { return true; }
-   const Point_2D& point = event.point;
-
-   if (defining_predictor)
-   {
-      const Transform_2D& transform = wind_disc.get_transform ();
-      const Point_2D& w = transform.reverse (point);
-      predictor.wind_925 = Wind::direction_speed (w.x, w.y * 0.514444);
-      render_queue_draw ();
-      return true;
-   }
-
-   return false;
-
-}
-
-bool
-Gwsb_Free::on_mouse_button_released (const Dmouse_Button_Event& event)
-{
-
-   if (Gwsb::on_mouse_button_released (event)) { return true; }
-   const Point_2D& point = event.point;
-
-   if (defining_predictor)
-   {
-      defining_predictor = false;
-      return true;
-   }
-
-   return false;
-
-}
-
-void
-Gwsb_Free::render_image_buffer (const RefPtr<Context>& cr)
-{
-
-   const Dtime& dtime = time_chooser.get_time ();
-
-   render (cr, dtime, predictor);
-
 }
 

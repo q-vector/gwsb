@@ -2,7 +2,7 @@
 #include <iostream>
 #include <denise/gtkmm.h>
 #include "gwsb.h"
-#include "gw.h"
+#include "predictor.h"
 
 using namespace std;
 using namespace denise;
@@ -144,11 +144,11 @@ main (int argc,
          window.resize (size_2d.i, size_2d.j);
          window.set_title ("gwsb");
 
-         Gwsb_Sequence gwsb_sequence (window_ptr, size_2d,
+         Gwsb gwsb (window_ptr, size_2d,
             sequence_map, data, wind_disc);
 
-         window.add (gwsb_sequence);
-         gwsb_sequence.show ();
+         window.add (gwsb);
+         gwsb.show ();
 
          Gtk::Main::run (window);
 
@@ -159,7 +159,7 @@ main (int argc,
       }
       else
       {
-
+/*
          Gtk::Main gtk_main (argc, argv);
 
          Gtk::Window* window_ptr = new Gtk::Window ();
@@ -175,7 +175,7 @@ main (int argc,
          gwsb_free.show ();
 
          Gtk::Main::run (window);
-
+*/
       }
 
    }
