@@ -1,8 +1,8 @@
 INCLUDES	= -I$(top_builddir) -I$(top_srcdir)
 
-#noinst_HEADERS	= data.h gwsb.h selection.h
-noinst_HEADERS	= data.h gwsb.h predictor.h
+#noinst_HEADERS	= data.h nine2five.h selection.h
+noinst_HEADERS	= data.h nine2five.h predictor.h
 
-bin_PROGRAMS	= gwsb
-gwsb_SOURCES	= data.cc gwsb.cc predictor.cc main.cc
+bin_PROGRAMS		= nine2five
+nine2five_SOURCES	= data.cc nine2five.cc predictor.cc main.cc
 

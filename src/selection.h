@@ -1,15 +1,15 @@
-#ifndef GWSB_SELECTION_H
-#define GWSB_SELECTION_H
+#ifndef NINE2FIVE_SELECTION_H
+#define NINE2FIVE_SELECTION_H
 
 #include <iostream>
 #include <denise/gtkmm.h>
 #include <denise/met.h>
 
-namespace gwsb
+namespace nine2five
 {
 
-   class Gwsb;
-   class Gwsb_Free;
+   class Nine2five;
+   class Nine2five_Free;
    class Month_Panel;
    class Hour_Panel;
 
@@ -80,8 +80,8 @@ namespace gwsb
          Dbutton
          increment_button;
 
-         Gwsb_Free&
-         gwsb_free;
+         Nine2five_Free&
+         nine2five_free;
 
          map<Dstring, Dbutton*>
          button_ptr_map;
@@ -94,7 +94,7 @@ namespace gwsb
 
       public:
 
-         Selection_Panel (Gwsb_Free& gwsb_free,
+         Selection_Panel (Nine2five_Free& nine2five_free,
                           const Real margin,
                           const Real spacing);
 
@@ -127,7 +127,7 @@ namespace gwsb
 
       public:
 
-         Month_Panel (Gwsb_Free& gwsb_free,
+         Month_Panel (Nine2five_Free& nine2five_free,
                       const Real margin,
                       const Real spacing);
 
@@ -147,7 +147,7 @@ namespace gwsb
 
       public:
 
-         Hour_Panel (Gwsb_Free& gwsb_free,
+         Hour_Panel (Nine2five_Free& nine2five_free,
                      const Real margin,
                      const Real spacing);
 
@@ -164,4 +164,4 @@ namespace gwsb
 
 };
 
-#endif /* GWSB_SELECTION_H */
+#endif /* NINE2FIVE_SELECTION_H */

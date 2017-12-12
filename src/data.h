@@ -1,5 +1,5 @@
-#ifndef GWSB_DATA_H
-#define GWSB_DATA_H
+#ifndef NINE2FIVE_DATA_H
+#define NINE2FIVE_DATA_H
 
 #include <set>
 #include <iostream>
@@ -11,7 +11,7 @@
 
 using namespace std;
 
-namespace gwsb
+namespace nine2five
 {
 
    class Criteria;
@@ -236,5 +236,5 @@ namespace gwsb
 
 };
 
-#endif /* GWSB_DATA_H */
+#endif /* NINE2FIVE_DATA_H */
 

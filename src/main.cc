@@ -1,12 +1,12 @@
 #include <getopt.h>
 #include <iostream>
 #include <denise/gtkmm.h>
-#include "gwsb.h"
+#include "nine2five.h"
 #include "predictor.h"
 
 using namespace std;
 using namespace denise;
-using namespace gwsb;
+using namespace nine2five;
 
 int
 main (int argc,
@@ -29,7 +29,7 @@ main (int argc,
    try
    {
 
-      const string data_path = getenv ("GWSB_DATA");
+      const string data_path = getenv ("NINE2FIVE_DATA");
 
       bool command_line = false;
       Tokens station_tokens;
@@ -142,13 +142,13 @@ main (int argc,
          Gtk::Window& window = *window_ptr;
          window.set_resizable (false);
          window.resize (size_2d.i, size_2d.j);
-         window.set_title ("gwsb");
+         window.set_title ("nine2five");
 
-         Gwsb gwsb (window_ptr, size_2d,
+         Nine2five nine2five (window_ptr, size_2d,
             sequence_map, data, wind_disc);
 
-         window.add (gwsb);
-         gwsb.show ();
+         window.add (nine2five);
+         nine2five.show ();
 
          Gtk::Main::run (window);
 
@@ -166,13 +166,13 @@ main (int argc,
          Gtk::Window& window = *window_ptr;
          window.set_resizable (false);
          window.resize (size_2d.i, size_2d.j);
-         window.set_title ("gwsb");
+         window.set_title ("nine2five");
 
-         Gwsb_Free gwsb_free (window_ptr, size_2d,
+         Nine2five_Free nine2five_free (window_ptr, size_2d,
             station_tokens, data, wind_disc);
 
-         window.add (gwsb_free);
-         gwsb_free.show ();
+         window.add (nine2five_free);
+         nine2five_free.show ();
 
          Gtk::Main::run (window);
 */

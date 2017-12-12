@@ -1,10 +1,10 @@
 #include "data.h"
-#include "gwsb.h"
+#include "nine2five.h"
 #include "predictor.h"
 
 using namespace std;
 using namespace denise;
-using namespace gwsb;
+using namespace nine2five;
 
 Record::Record (const Dtime& dtime,
                 const Wind& wind_925,

@@ -1,10 +1,10 @@
 #include "selection.h"
 #include "data.h"
-#include "gwsb.h"
+#include "nine2five.h"
 
 using namespace std;
 using namespace denise;
-using namespace gwsb;
+using namespace nine2five;
 
 Selection_Panel::Month_Map::Month_Map ()
    : tokens ("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec")
@@ -84,15 +84,15 @@ Selection_Panel::Status::first () const
    for (auto& i : *this) { if (i.second) { return i.first; } }
 }
 
-Selection_Panel::Selection_Panel (Gwsb_Free& gwsb_free,
+Selection_Panel::Selection_Panel (Nine2five_Free& nine2five_free,
                                   const Real margin,
                                   const Real spacing)
-   : Dpack_Box (gwsb_free, margin, spacing, false),
-     gwsb_free (gwsb_free),
+   : Dpack_Box (nine2five_free, margin, spacing, false),
+     nine2five_free (nine2five_free),
      led_color (1, 0, 0),
-     box (gwsb_free, 0, 6, true),
-     decrement_button (gwsb_free, "-", 12),
-     increment_button (gwsb_free, "+", 12)
+     box (nine2five_free, 0, 6, true),
+     decrement_button (nine2five_free, "-", 12),
+     increment_button (nine2five_free, "+", 12)
 {
 
    box.pack_back (decrement_button);
@@ -139,7 +139,7 @@ Selection_Panel::set_value (const Dstring& str,
 
    if (render_and_refresh)
    {
-      gwsb_free.render_queue_draw ();
+      nine2five_free.render_queue_draw ();
    }
 
 }
@@ -155,19 +155,19 @@ Selection_Panel::toggle (const Dstring& str)
    if (is_on) { button.set_led_color (led_color); }
    else { button.set_led_color (Color (GSL_NAN, GSL_NAN, GSL_NAN)); }
 
-   gwsb_free.render_queue_draw ();
+   nine2five_free.render_queue_draw ();
 
 }
 
-Month_Panel::Month_Panel (Gwsb_Free& gwsb_free,
+Month_Panel::Month_Panel (Nine2five_Free& nine2five_free,
                           const Real margin,
                           const Real spacing)
-   : Selection_Panel (gwsb_free, margin, spacing)
+   : Selection_Panel (nine2five_free, margin, spacing)
 {
 
    for (const Dstring& str : month_map.tokens)
    {
-      Dbutton* button_ptr = new Dbutton (gwsb_free, str, 12);
+      Dbutton* button_ptr = new Dbutton (nine2five_free, str, 12);
       button_ptr->get_full_str_signal ().connect (sigc::mem_fun (
          *this, &Selection_Panel::handle));
       button_ptr_map.insert (make_pair (str, button_ptr));
@@ -217,16 +217,16 @@ Month_Panel::decrement ()
    set_value (prev_month);
 }
 
-Hour_Panel::Hour_Panel (Gwsb_Free& gwsb_free,
+Hour_Panel::Hour_Panel (Nine2five_Free& nine2five_free,
                         const Real margin,
                         const Real spacing)
-   : Selection_Panel (gwsb_free, margin, spacing)
+   : Selection_Panel (nine2five_free, margin, spacing)
 {
 
    for (Integer hour = 0; hour < 24; hour++)
    {
       const Dstring& str = Dstring::render ("%02dZ", hour);
-      Dbutton* button_ptr = new Dbutton (gwsb_free, str, 12);
+      Dbutton* button_ptr = new Dbutton (nine2five_free, str, 12);
       button_ptr->get_full_str_signal ().connect (sigc::mem_fun (
          *this, &Selection_Panel::handle));
       button_ptr_map.insert (make_pair (str, button_ptr));
@@ -275,12 +275,12 @@ Hour_Panel::decrement ()
    set_value (Dstring::render ("%02dZ", h));
 }
 
-Station_Panel::Station_Panel (Gwsb& gwsb,
+Station_Panel::Station_Panel (Nine2five& nine2five,
                               const Tokens& station_tokens,
                               const Real margin,
                               const Real spacing)
-   : Dgrid_Box (gwsb, margin, spacing),
-     gwsb (gwsb),
+   : Dgrid_Box (nine2five, margin, spacing),
+     nine2five (nine2five),
      led_color (1, 0, 0)
 {
 
@@ -291,10 +291,10 @@ Station_Panel::Station_Panel (Gwsb& gwsb,
    {
       const Integer i = id % n;
       const Integer j = id / n;
-      Dbutton* button_ptr = new Dbutton (gwsb, station, 12);
+      Dbutton* button_ptr = new Dbutton (nine2five, station, 12);
       button_ptr_map.insert (make_pair (station, button_ptr));
       button_ptr->get_str_signal ().connect (sigc::mem_fun (
-         gwsb, &Gwsb::set_station));
+         nine2five, &Nine2five::set_station));
       pack (*button_ptr, Index_2D (i, j));
       id++;
    }
