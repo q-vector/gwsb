@@ -47,6 +47,7 @@ Predictor::Sequence::Map::ingest (const Dstring& sequence_file_path)
 
       const Dstring input_line (il);
       if (input_line[0] == '"') { continue; }
+      if (input_line[0] == 'f') { continue; }
 
       const Tokens tokens (input_line, ",");
       const Real forecast_hour = Real (stoi (tokens[0]));
